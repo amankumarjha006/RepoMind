@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { MaterialIcon } from '../components/ui/MaterialIcon';
 import { Button } from '../components/ui/button';
 import { AnimatedPage } from '../components/ui/AnimatedPage';
@@ -10,7 +11,7 @@ import { ChatMessageItem } from '../components/chat/ChatMessageItem';
 import { ChatComposer } from '../components/chat/ChatComposer';
 import { ChatEmptyState } from '../components/chat/ChatEmptyState';
 import { SourcePanel } from '../components/chat/SourcePanel';
-import { realApi, api, ApiError, type RepositoryDetailOut } from '../lib/api';
+import { realApi, api, ApiError, queryKeys, type RepositoryDetailOut } from '../lib/api';
 import { Conversation, ChatMessage, Citation } from '../lib/types';
 import { toast } from '../components/ui/sonner';
 
@@ -18,9 +19,36 @@ export function ChatPage() {
   const { id: repoId, conversationId } = useParams<{ id: string; conversationId?: string }>();
   const navigate = useNavigate();
 
-  const [repo, setRepo] = React.useState<RepositoryDetailOut | null>(null);
+  const queryClient = useQueryClient();
+
+  // ── React Query: repo detail (shared cache — instant on tab switch) ──
+  const { data: repo = null } = useQuery({
+    queryKey: queryKeys.repoDetail(repoId!),
+    queryFn: () => realApi.getRepositoryDetail(repoId!),
+    enabled: Boolean(repoId),
+    staleTime: 30_000,
+  });
+
+  // ── React Query: conversations list (shared cache) ──
+  const { data: conversationsData, isLoading: loadingConversations } = useQuery({
+    queryKey: queryKeys.repoConversations(repoId!),
+    queryFn: async () => {
+      const res = await realApi.listConversations(repoId!, 1, 50);
+      return (res.items || []).map((c): Conversation => ({
+        id: c.id,
+        repository_id: repoId!,
+        title: c.title || 'Untitled conversation',
+        created_at: c.created_at,
+        updated_at: c.created_at,
+        pinned_sha: '',
+        message_count: 0,
+      }));
+    },
+    enabled: Boolean(repoId),
+    staleTime: 15_000,
+  });
+
   const [conversations, setConversations] = React.useState<Conversation[]>([]);
-  const [loadingConversations, setLoadingConversations] = React.useState(true);
   const [activeConvId, setActiveConvId] = React.useState<string | null>(conversationId || null);
   const [messages, setMessages] = React.useState<ChatMessage[]>([]);
   const [loadingMessages, setLoadingMessages] = React.useState(false);
@@ -42,6 +70,16 @@ export function ChatPage() {
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const isStreamingRef = React.useRef(false);
 
+  // Sync React Query conversations data into local state
+  React.useEffect(() => {
+    if (conversationsData) {
+      setConversations(conversationsData);
+      if (!activeConvId && conversationsData.length > 0 && conversationsData[0]) {
+        setActiveConvId(conversationsData[0].id);
+      }
+    }
+  }, [conversationsData]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const scrollToBottom = React.useCallback((force = false) => {
     if (scrollRef.current) {
       if (force) {
@@ -55,39 +93,7 @@ export function ChatPage() {
     }
   }, []);
 
-  // Load repository details and conversations
-  const loadRepoAndConvs = React.useCallback(async () => {
-    if (!repoId) return;
-    try {
-      const repoData = await realApi.getRepositoryDetail(repoId);
-      setRepo(repoData);
-
-      setLoadingConversations(true);
-      const convListRes = await realApi.listConversations(repoId, 1, 50);
-      const convItems: Conversation[] = (convListRes.items || []).map((c) => ({
-        id: c.id,
-        repository_id: repoId,
-        title: c.title || 'Untitled conversation',
-        created_at: c.created_at,
-        updated_at: c.created_at,
-        pinned_sha: '',
-        message_count: 0,
-      }));
-      setConversations(convItems);
-
-      if (!activeConvId && convItems.length > 0 && convItems[0]) {
-        setActiveConvId(convItems[0].id);
-      }
-    } catch {
-      toast.error('Failed to load repository conversations');
-    } finally {
-      setLoadingConversations(false);
-    }
-  }, [repoId, activeConvId]);
-
-  React.useEffect(() => {
-    loadRepoAndConvs();
-  }, [loadRepoAndConvs]);
+  
 
   // Synchronize route param with active conversation
   React.useEffect(() => {

@@ -1,11 +1,12 @@
 import * as React from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { MaterialIcon } from '../components/ui/MaterialIcon';
 import { StatusDot } from '../components/ui/StatusDot';
 import { Button } from '../components/ui/button';
 import { AnimatedPage } from '../components/ui/AnimatedPage';
 import { RepositoryHeader } from '../components/repository/RepositoryHeader';
-import { realApi, type RepositoryDetailOut, type FileOut } from '../lib/api';
+import { realApi, queryKeys, type RepositoryDetailOut, type FileOut } from '../lib/api';
 import { formatNumber, formatRelativeTime, shortSha } from '../lib/utils';
 import { classifyPath } from '../lib/classifyPath';
 import { getRepositoryStatusCategory } from '../lib/repositoryTableUtils';
@@ -16,13 +17,10 @@ import { useIndexingStatus } from '../lib/useIndexingStatus';
 export function RepositoryOverviewPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { user } = useAuth();
   const { repositories, refetch: refetchIndexing } = useIndexingStatus();
 
-  const [repo, setRepo] = React.useState<RepositoryDetailOut | null>(null);
-  const [files, setFiles] = React.useState<FileOut[]>([]);
-  const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = React.useState(false);
 
   // Store last-opened repo in localStorage keyed by user id
@@ -32,40 +30,30 @@ export function RepositoryOverviewPage() {
     }
   }, [id, user?.id]);
 
-  const loadRepositoryData = React.useCallback(async () => {
-    if (!id) return;
-    setLoading(true);
-    setError(null);
+  // ── React Query: repo detail (cached across tab switches) ──
+  const {
+    data: repo,
+    isLoading: loadingRepo,
+    error: repoError,
+  } = useQuery({
+    queryKey: queryKeys.repoDetail(id!),
+    queryFn: () => realApi.getRepositoryDetail(id!),
+    enabled: Boolean(id),
+    staleTime: 30_000,
+  });
 
-    try {
-      const detail = await realApi.getRepositoryDetail(id);
-      setRepo(detail);
+  // ── React Query: file list (cached across tab switches) ──
+  const { data: files = [] } = useQuery({
+    queryKey: queryKeys.repoFiles(id!),
+    queryFn: async () => {
+      const res = await realApi.getRepositoryFiles(id!, 500, 0);
+      return res.files || [];
+    },
+    enabled: Boolean(id),
+    staleTime: 60_000,
+  });
 
-      // Fetch files list for entry points and metrics
-      try {
-        const filesRes = await realApi.getRepositoryFiles(id, 1, 500);
-        setFiles(filesRes.files || []);
-      } catch {
-        setFiles([]);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Repository not found');
-    } finally {
-      setLoading(false);
-    }
-  }, [id]);
-
-  React.useEffect(() => {
-    loadRepositoryData();
-  }, [loadRepositoryData]);
-
-  const handleReindex = async () => {
-    if (!id) return;
-    await realApi.analyzeRepository(id);
-    refetchIndexing();
-    loadRepositoryData();
-  };
-
+  // ── Live status from shared indexing hook ──
   const currentRepoStatus = React.useMemo(() => {
     return repositories.find((r) => r.id === id);
   }, [repositories, id]);
@@ -114,55 +102,57 @@ export function RepositoryOverviewPage() {
     }
   }, [rawStatus]);
 
-  // Live polling while indexing is active so the UI refreshes in real-time
+  // Live polling while indexing is active — invalidate query to refresh
   React.useEffect(() => {
     if (!isCurrentlyIndexing || !id) return;
 
     const interval = setInterval(() => {
-      realApi
-        .getRepositoryDetail(id)
-        .then((detail) => {
-          setRepo(detail);
-          if (detail.active_version?.status === 'SUCCESS') {
-            realApi
-              .getRepositoryFiles(id, 1, 500)
-              .then((res) => {
-                setFiles(res.files || []);
-              })
-              .catch(() => {});
-          }
-        })
-        .catch(() => {});
-    }, 2000);
+      queryClient.invalidateQueries({ queryKey: queryKeys.repoDetail(id) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.repoFiles(id) });
+    }, 4000);
 
     return () => clearInterval(interval);
-  }, [id, isCurrentlyIndexing]);
+  }, [id, isCurrentlyIndexing, queryClient]);
 
-  // Identify entry points from files (main.py, app.py, index.ts, App.tsx, etc.)
+  const handleReindex = async () => {
+    if (!id) return;
+    await realApi.analyzeRepository(id);
+    refetchIndexing();
+    queryClient.invalidateQueries({ queryKey: queryKeys.repoDetail(id) });
+  };
+
+  // Identify entry points from files
   const entryPoints = React.useMemo(() => {
     if (!files || files.length === 0) return [];
     const candidates = [
-      'main.py',
-      'app.py',
-      'server.py',
-      'index.ts',
-      'index.tsx',
-      'index.js',
-      'app.tsx',
-      'main.go',
-      'main.rs',
-      'lib.rs',
+      'main.py', 'app.py', 'server.py', 'manage.py',
+      'index.ts', 'index.tsx', 'index.js', 'index.jsx',
+      'app.tsx', 'app.ts', 'app.jsx', 'app.js',
+      'main.ts', 'main.tsx', 'main.js', 'main.jsx',
+      'server.ts', 'server.js',
+      'page.tsx', 'page.jsx', 'page.js',
+      'layout.tsx', 'layout.jsx', 'layout.js',
+      'route.ts', 'route.js',
+      'middleware.ts', 'middleware.js', 'middlware.ts',
+      'main.go', 'main.rs', 'lib.rs',
     ];
+    const sourceFiles = files.filter((file) => classifyPath(file.path) === 'source');
+    const matched = sourceFiles.filter((file) => {
+      const fileName = file.path.split('/').pop()?.toLowerCase() || '';
+      return candidates.includes(fileName);
+    });
 
-    return files
-      .filter((file) => {
-        const fileName = file.path.split('/').pop()?.toLowerCase() || '';
-        return candidates.includes(fileName) && classifyPath(file.path) === 'source';
-      })
+    if (matched.length > 0) {
+      return matched.slice(0, 5);
+    }
+
+    // Fallback: pick shallowest source files by path depth
+    return [...sourceFiles]
+      .sort((a, b) => a.path.split('/').length - b.path.split('/').length)
       .slice(0, 5);
   }, [files]);
 
-  // Compute sampled hotspots from files (sorted by size as proxy for complexity)
+  // Compute sampled hotspots from files
   const hotspots = React.useMemo(() => {
     if (!files || files.length === 0) return [];
     return files
@@ -171,7 +161,7 @@ export function RepositoryOverviewPage() {
       .slice(0, 6);
   }, [files]);
 
-  if (loading) {
+  if (loadingRepo) {
     return (
       <div className="p-8 max-w-[1200px] mx-auto text-xs text-text-tertiary">
         Loading repository overview...
@@ -179,12 +169,13 @@ export function RepositoryOverviewPage() {
     );
   }
 
+  const error = repoError;
   if (error || !repo) {
     return (
       <div className="p-12 max-w-md mx-auto text-center space-y-4">
         <MaterialIcon name="error" size={32} className="text-status-red mx-auto" />
         <h2 className="text-base font-semibold text-text-primary">Repository not found</h2>
-        <p className="text-xs text-text-secondary">{error}</p>
+        <p className="text-xs text-text-secondary">{error instanceof Error ? error.message : 'Unknown error'}</p>
         <Button variant="ghost" onClick={() => navigate('/repositories')} className="text-xs">
           Back to Repositories
         </Button>
@@ -386,7 +377,7 @@ export function RepositoryOverviewPage() {
           </div>
         </div>
 
-        {/* 3. Hotspots Table with "Approximate (based on sampled edge evidence)" Label */}
+        {/* 3. Hotspots Table */}
         <div className="p-4 rounded-lg border border-white/10 bg-surface-raised space-y-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
             <div className="flex items-center gap-2">
@@ -429,7 +420,7 @@ export function RepositoryOverviewPage() {
           </div>
         </div>
 
-        {/* 4. Conditional Index History (collapsible, only if history available) */}
+        {/* 4. Conditional Index History (collapsible) */}
         {activeVersion && (
           <div className="rounded-lg border border-white/10 bg-surface-raised overflow-hidden">
             <button

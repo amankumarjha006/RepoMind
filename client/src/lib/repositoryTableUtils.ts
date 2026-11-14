@@ -4,7 +4,7 @@ export type StatusCategory = 'READY' | 'INDEXING' | 'FAILED' | 'OTHER';
 
 export function getRepositoryStatusCategory(repo: RepositoryListItemOut): StatusCategory {
   const status = (repo.latest_job_status || '').toUpperCase();
-  if (status === 'READY' || (repo.active_version_short_sha && !repo.latest_job_status)) {
+  if (status === 'READY' || status === 'SUCCESS' || (repo.active_version_short_sha && !repo.latest_job_status)) {
     return 'READY';
   }
   if (['INDEXING', 'QUEUED', 'FETCHING', 'ANALYZING', 'CLONING'].includes(status)) {

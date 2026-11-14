@@ -1,10 +1,9 @@
 import * as React from 'react';
 import { useParams, useSearchParams, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { motion, AnimatePresence } from 'motion/react';
 import { MaterialIcon } from '../components/ui/MaterialIcon';
-import { api, getCachedRepository } from '../lib/api';
-import type { Repository, FileTreeNode, FileContent } from '../lib/types';
+import { api, realApi, queryKeys } from '../lib/api';
+import type { FileTreeNode, FileContent } from '../lib/types';
 import { RepositoryHeader } from '../components/repository/RepositoryHeader';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -19,11 +18,12 @@ export function FilesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
 
-  const { data: repository = null } = useQuery<Repository | null>({
-    queryKey: ['repository', repoId],
-    queryFn: () => (repoId ? api.getRepository(repoId) : Promise.resolve(null)),
+  // Cached repository details shared across Overview, Architecture, Chat, Search, Files
+  const { data: repository = null } = useQuery({
+    queryKey: queryKeys.repoDetail(repoId!),
+    queryFn: () => realApi.getRepositoryDetail(repoId!),
     enabled: Boolean(repoId),
-    initialData: () => (repoId ? getCachedRepository(repoId) : null),
+    staleTime: 30_000,
   });
 
   // Active file path from URL or empty default
@@ -53,18 +53,11 @@ export function FilesPage() {
   const [mobileView, setMobileView] = React.useState<'tree' | 'source'>('source');
 
   // Expanded directory map
-  const [expandedDirs, setExpandedDirs] = React.useState<Record<string, boolean>>({
-    fastapi: true,
-    'fastapi/dependencies': true,
-    server: true,
-    'server/app': true,
-    client: true,
-    'client/src': true,
-  });
+  const [expandedDirs, setExpandedDirs] = React.useState<Record<string, boolean>>({});
 
   // Automatically expand parent directories of the active file
   const expandParentDirectories = React.useCallback((filePath: string) => {
-    const parts = filePath.split('/');
+    const parts = filePath.replace(/\\/g, '/').split('/');
     if (parts.length <= 1) return;
     setExpandedDirs((prev) => {
       const next = { ...prev };
@@ -79,11 +72,26 @@ export function FilesPage() {
 
   // Query: Cached file tree per version
   const { data: fileTree, isLoading: loadingTree } = useQuery<FileTreeNode>({
-    queryKey: ['file-tree', repoId, repository?.active_version_short_sha ?? 'latest'],
+    queryKey: queryKeys.fileTree(repoId!),
     queryFn: () => api.getFileTree(repoId!),
     enabled: Boolean(repoId),
     staleTime: 60_000,
   });
+
+  // When file tree loads, expand all top-level directories so the structure is visible
+  React.useEffect(() => {
+    if (fileTree?.children) {
+      setExpandedDirs((prev) => {
+        const next = { ...prev };
+        for (const child of fileTree.children || []) {
+          if (child.type === 'directory') {
+            next[child.path] = true;
+          }
+        }
+        return next;
+      });
+    }
+  }, [fileTree]);
 
   // Automatically select the first file when tree loads and no file is active
   React.useEffect(() => {
@@ -115,7 +123,7 @@ export function FilesPage() {
     isLoading: loadingContent,
     error: contentError,
   } = useQuery<FileContent>({
-    queryKey: ['file-content', repoId, activeFilePath],
+    queryKey: queryKeys.repoFileContent(repoId!, activeFilePath),
     queryFn: () => api.getFileContent(repoId!, activeFilePath),
     enabled: Boolean(repoId && activeFilePath),
     staleTime: 60_000,
@@ -181,9 +189,10 @@ export function FilesPage() {
       <div
         role="status"
         aria-label="Loading repository"
-        className="p-8 text-center text-xs text-text-secondary font-mono"
+        className="flex-1 flex flex-col items-center justify-center p-8 space-y-3"
       >
-        Loading repository files…
+        <div className="w-8 h-8 rounded-full border-2 border-accent/20 border-t-accent animate-spin" />
+        <span className="text-xs text-text-secondary font-mono">Loading repository files…</span>
       </div>
     );
   }
@@ -191,12 +200,12 @@ export function FilesPage() {
   const pathSegments = activeFilePath ? activeFilePath.split('/') : [];
 
   return (
-    <AnimatedPage className="flex flex-col min-h-screen bg-surface-base text-text-primary font-sans">
+    <AnimatedPage className="flex flex-col flex-1 h-full min-h-0 overflow-hidden bg-surface-base text-text-primary font-sans">
       <LiveRegion message={a11yStatus} />
       <RepositoryHeader repository={repository} onReindex={handleReindex} />
 
       {/* Mobile view toggle */}
-      <div className="sm:hidden flex items-center justify-between p-2 border-b border-white/10 bg-surface-raised">
+      <div className="sm:hidden flex items-center justify-between p-2 border-b border-white/10 bg-surface-raised shrink-0">
         <div className="flex items-center gap-1 p-0.5 rounded-lg bg-surface-overlay border border-white/10">
           <button
             onClick={() => setMobileView('tree')}
@@ -221,22 +230,17 @@ export function FilesPage() {
       </div>
 
       {/* Main Files Workspace Split Pane */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex min-h-0 overflow-hidden">
         {/* Left: Virtualized File Tree Browser */}
-        <AnimatePresence>
-          {!isTreeCollapsed && (
-            <motion.aside
-              initial={{ width: 0, opacity: 0 }}
-              animate={{ width: 320, opacity: 1 }}
-              exit={{ width: 0, opacity: 0 }}
-              transition={{ type: 'spring', stiffness: 350, damping: 32 }}
-              aria-label="Repository file tree"
-              className={`
-                w-full sm:w-72 lg:w-80 border-r border-white/10 bg-surface-raised flex flex-col shrink-0 overflow-hidden select-none z-10
-                ${mobileView === 'source' ? 'hidden sm:flex' : 'flex'}
-              `}
-            >
-              {/* Tree Top Bar */}
+        {!isTreeCollapsed && (
+          <aside
+            aria-label="Repository file tree"
+            className={`
+              w-full sm:w-72 lg:w-80 border-r border-white/10 bg-surface-raised flex flex-col shrink-0 overflow-hidden select-none z-10
+              ${mobileView === 'source' ? 'hidden sm:flex' : 'flex'}
+            `}
+          >
+            {/* Tree Top Bar */}
             <div className="p-3 border-b border-white/10 flex items-center justify-between gap-2 shrink-0 bg-surface-raised">
               <div className="flex items-center gap-2 min-w-0">
                 <MaterialIcon name="folder" size={16} className="text-accent shrink-0" aria-hidden="true" />
@@ -269,7 +273,7 @@ export function FilesPage() {
             </div>
 
             {/* Tree Filter Search Input */}
-            <div className="p-2 border-b border-white/10 bg-surface-raised">
+            <div className="p-2 border-b border-white/10 bg-surface-raised shrink-0">
               <div className="relative">
                 <MaterialIcon
                   name="search"
@@ -299,8 +303,9 @@ export function FilesPage() {
 
             {/* Virtualized Tree Component */}
             {loadingTree ? (
-              <div className="p-4 text-center text-xs text-text-secondary font-mono animate-pulse">
-                Loading file tree…
+              <div className="p-4 flex flex-col items-center justify-center space-y-2 text-xs text-text-secondary font-mono">
+                <div className="w-5 h-5 rounded-full border-2 border-accent/20 border-t-accent animate-spin" />
+                <span>Loading file tree…</span>
               </div>
             ) : (
               <FileTree
@@ -312,19 +317,18 @@ export function FilesPage() {
                 onToggleDir={toggleDir}
               />
             )}
-          </motion.aside>
+          </aside>
         )}
-      </AnimatePresence>
 
         {/* Right: Code Viewer Container */}
         <div
           className={`
-            flex-1 flex flex-col min-w-0 bg-surface-base
+            flex-1 flex flex-col min-w-0 bg-surface-base h-full
             ${mobileView === 'tree' ? 'hidden sm:flex' : 'flex'}
           `}
         >
           {/* Viewer Top Action Bar */}
-          <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/10 bg-surface-raised gap-2">
+          <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/10 bg-surface-raised gap-2 shrink-0">
             <div className="flex items-center gap-2 min-w-0">
               {isTreeCollapsed && (
                 <button
@@ -390,15 +394,15 @@ export function FilesPage() {
           </div>
 
           {/* Viewer Code Body */}
-          <div className="flex-1 overflow-hidden relative">
+          <div className="flex-1 min-h-0 overflow-hidden relative">
             {!activeFilePath ? (
               <div className="h-full flex flex-col items-center justify-center p-8 text-center text-xs text-text-secondary font-mono space-y-2">
                 <MaterialIcon name="folder_open" size={28} className="text-text-tertiary" />
                 <p>Select a file from the tree to view source code.</p>
               </div>
             ) : loadingContent ? (
-              <div className="h-full flex flex-col items-center justify-center p-8 text-center text-xs text-text-secondary font-mono space-y-2">
-                <MaterialIcon name="sync" size={20} className="animate-spin text-text-tertiary" />
+              <div className="h-full flex flex-col items-center justify-center p-8 text-center text-xs text-text-secondary font-mono space-y-3">
+                <div className="w-8 h-8 rounded-full border-2 border-accent/20 border-t-accent animate-spin" />
                 <p>Loading file content…</p>
               </div>
             ) : contentError ? (
@@ -407,13 +411,7 @@ export function FilesPage() {
                 <p className="text-xs text-status-failed">{contentError instanceof Error ? contentError.message : String(contentError)}</p>
               </div>
             ) : fileContent ? (
-              <motion.div
-                key={fileContent.path}
-                initial={{ opacity: 0, y: 4 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.18, ease: 'easeOut' }}
-                className="h-full w-full overflow-hidden"
-              >
+              <div className="h-full w-full overflow-hidden">
                 <SourceViewer
                   code={fileContent.content}
                   language={fileContent.language}
@@ -422,7 +420,7 @@ export function FilesPage() {
                   targetEndLine={targetEndLine}
                   onClearTarget={handleClearTarget}
                 />
-              </motion.div>
+              </div>
             ) : (
               <div className="h-full flex flex-col items-center justify-center p-8 text-center text-xs text-text-secondary font-mono">
                 Select a file to inspect source code.
@@ -434,3 +432,4 @@ export function FilesPage() {
     </AnimatedPage>
   );
 }
+export default FilesPage;

@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { MaterialIcon } from '../components/ui/MaterialIcon';
 import { Button } from '../components/ui/button';
 import { AnimatedPage } from '../components/ui/AnimatedPage';
@@ -12,7 +13,7 @@ import {
 import { ActivityTimeline } from '../components/dashboard/ActivityTimeline';
 import { useRepositoryPolling } from '../lib/useRepositoryPolling';
 import { useAuth } from '../lib/AuthContext';
-import { realApi, type ConversationOut } from '../lib/api';
+import { realApi, queryKeys, type ConversationOut } from '../lib/api';
 import {
   selectHeroRepository,
   getLastOpenedRepoId,
@@ -22,6 +23,7 @@ import { toast } from '../components/ui/sonner';
 
 export function DashboardPage() {
   const { user, markSessionExpired } = useAuth();
+  const queryClient = useQueryClient();
   const [connectOpen, setConnectOpen] = React.useState(false);
   const [recentConversations, setRecentConversations] = React.useState<RecentConversationItem[]>([]);
   const [loadingConversations, setLoadingConversations] = React.useState(false);
@@ -40,6 +42,18 @@ export function DashboardPage() {
     limit: 50,
     onSessionExpired: markSessionExpired,
   });
+
+  // Prefetch repo details on hover (Fix 4)
+  const prefetchRepoDetail = React.useCallback(
+    (repoId: string) => {
+      queryClient.prefetchQuery({
+        queryKey: queryKeys.repoDetail(repoId),
+        queryFn: () => realApi.getRepositoryDetail(repoId),
+        staleTime: 30_000,
+      });
+    },
+    [queryClient]
+  );
 
   // Fetch recent conversations for top repositories
   React.useEffect(() => {
@@ -150,7 +164,21 @@ export function DashboardPage() {
         )}
       </div>
 
-      {!loadingRepos && total === 0 ? (
+      {loadingRepos ? (
+        /* Circular Loading State while repositories are being fetched */
+        <div
+          className="flex flex-col items-center justify-center min-h-[380px] space-y-4 py-16"
+          role="status"
+          aria-label="Loading dashboard"
+        >
+          <div className="relative flex items-center justify-center">
+            <div className="w-10 h-10 rounded-full border-2 border-accent/20 border-t-accent animate-spin" />
+          </div>
+          <p className="text-xs text-text-secondary font-mono tracking-wide">
+            Loading repositories and intelligence…
+          </p>
+        </div>
+      ) : total === 0 ? (
         /* First-run Empty State */
         <div className="rounded-lg border border-white/10 bg-surface-raised p-12 text-center space-y-4 max-w-md mx-auto my-12">
           <div className="w-12 h-12 rounded-full bg-surface-overlay flex items-center justify-center mx-auto text-accent">
@@ -180,7 +208,7 @@ export function DashboardPage() {
           <ContinueHero repository={heroRepo} lastConversation={heroConversation} />
 
           {/* Grid of connected repositories */}
-          <RepoCardGrid repositories={repositories} />
+          <RepoCardGrid repositories={repositories} onHoverRepo={prefetchRepoDetail} />
 
           {/* Recent Conversations */}
           <RecentConversationsList

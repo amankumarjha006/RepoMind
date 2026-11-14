@@ -7,9 +7,10 @@ import type { RepositoryListItemOut } from '../../lib/api';
 
 interface RepoCardGridProps {
   repositories: RepositoryListItemOut[];
+  onHoverRepo?: (repoId: string) => void;
 }
 
-export function RepoCardGrid({ repositories }: RepoCardGridProps) {
+export function RepoCardGrid({ repositories, onHoverRepo }: RepoCardGridProps) {
   const navigate = useNavigate();
 
   if (!repositories || repositories.length === 0) return null;
@@ -33,6 +34,7 @@ export function RepoCardGrid({ repositories }: RepoCardGridProps) {
             <div
               key={repo.id}
               onClick={() => navigate(`/repositories/${repo.id}`)}
+              onMouseEnter={() => onHoverRepo?.(repo.id)}
               className="group p-4 rounded-lg border border-white/10 bg-surface-raised hover:border-accent/40 hover:bg-surface-overlay hover:-translate-y-0.5 hover:shadow-lg transition-all duration-200 active:scale-[0.99] cursor-pointer space-y-3 flex flex-col justify-between"
             >
               <div className="space-y-1.5">

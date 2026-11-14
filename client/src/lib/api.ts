@@ -264,6 +264,16 @@ export async function fetchWrapper<T>(endpoint: string, options: RequestInit = {
   }
 }
 
+const fileIdCache = new Map<string, string>();
+
+export function cacheFileId(repoId: string, path: string, fileId: string) {
+  fileIdCache.set(`${repoId}:${path.replace(/\\/g, '/')}`, fileId);
+}
+
+export function getCachedFileId(repoId: string, path: string): string | null {
+  return fileIdCache.get(`${repoId}:${path.replace(/\\/g, '/')}`) || null;
+}
+
 const repositoryCache = new Map<string, Repository>();
 
 export function getCachedRepository(id: string): Repository | null {
@@ -638,7 +648,10 @@ export const realApi = {
     };
 
     for (const file of res.files || []) {
-      const parts = file.path.split('/');
+      const normalizedPath = file.path.replace(/\\/g, '/');
+      fileIdCache.set(`${repoId}:${normalizedPath}`, file.id);
+
+      const parts = normalizedPath.split('/');
       let currentDir = root;
 
       for (let i = 0; i < parts.length - 1; i++) {
@@ -661,7 +674,7 @@ export const realApi = {
       if (!currentDir.children) currentDir.children = [];
       currentDir.children.push({
         name: fileName,
-        path: file.path,
+        path: normalizedPath,
         type: 'file',
         language: file.language,
         size: file.size,
@@ -673,13 +686,21 @@ export const realApi = {
   },
 
   getFileContent: async (repoId: string, path: string, options: RequestInit = {}): Promise<FileContent> => {
-    const listRes = await realApi.getRepositoryFiles(repoId, 500, 0, path, options);
-    const file = listRes.files?.find((f) => f.path === path);
-    if (!file) {
-      throw new ApiError(`File '${path}' not found in repository.`, 'NOT_FOUND', 404);
+    const normalizedPath = path.replace(/\\/g, '/');
+    let fileId = getCachedFileId(repoId, normalizedPath);
+
+    if (!fileId) {
+      // Look up file via search if not in local cache
+      const listRes = await realApi.getRepositoryFiles(repoId, 50, 0, normalizedPath, options);
+      const file = listRes.files?.find((f) => f.path.replace(/\\/g, '/') === normalizedPath);
+      if (!file) {
+        throw new ApiError(`File '${path}' not found in repository.`, 'NOT_FOUND', 404);
+      }
+      fileId = file.id;
+      fileIdCache.set(`${repoId}:${normalizedPath}`, fileId);
     }
 
-    const detail = await realApi.getRepositoryFileContent(repoId, file.id, options);
+    const detail = await realApi.getRepositoryFileContent(repoId, fileId, options);
     const lines = (detail.content || '').split('\n');
     return {
       path: detail.path,
@@ -865,4 +886,18 @@ export async function getComponentFiles(
 }
 
 export const api = realApi as unknown as MockApiType & typeof realApi;
+
+// ── Shared React Query key factories ─────────────────────────────────
+// Using a factory pattern keeps keys consistent across pages and prefetch calls.
+export const queryKeys = {
+  repoList: ['repositories', 'indexing-status'] as const,
+  repoDetail: (id: string) => ['repository-detail', id] as const,
+  repoFiles: (id: string) => ['repository-files', id] as const,
+  repoFileContent: (repoId: string, path: string) => ['file-content', repoId, path] as const,
+  repoConversations: (repoId: string) => ['conversations', repoId] as const,
+  conversationMessages: (convId: string) => ['messages', convId] as const,
+  repoArchitecture: (repoId: string) => ['architecture', repoId] as const,
+  repository: (id: string) => ['repository', id] as const,
+  fileTree: (repoId: string, sha?: string) => ['file-tree', repoId, sha ?? 'latest'] as const,
+} as const;
 

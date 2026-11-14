@@ -1,8 +1,8 @@
 import * as React from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { MaterialIcon } from '../components/ui/MaterialIcon';
-import { realApi, api, getCachedRepository, type SearchResultItem } from '../lib/api';
-import type { Repository } from '../lib/types';
+import { realApi, queryKeys, type SearchResultItem } from '../lib/api';
 import { RepositoryHeader } from '../components/repository/RepositoryHeader';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -15,9 +15,13 @@ export function SearchPage() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const urlQuery = searchParams.get('q') || '';
-  const [repository, setRepository] = React.useState<Repository | null>(() =>
-    repoId ? getCachedRepository(repoId) : null
-  );
+  const { data: repository = null } = useQuery({
+    queryKey: queryKeys.repoDetail(repoId!),
+    queryFn: () => realApi.getRepositoryDetail(repoId!),
+    enabled: Boolean(repoId),
+    staleTime: 30_000,
+  });
+
   const [query, setQuery] = React.useState(urlQuery);
   const [results, setResults] = React.useState<SearchResultItem[]>([]);
   const [selectedResult, setSelectedResult] = React.useState<SearchResultItem | null>(null);
@@ -28,12 +32,6 @@ export function SearchPage() {
   const [mobilePreviewOpen, setMobilePreviewOpen] = React.useState(false);
 
   const inputRef = React.useRef<HTMLInputElement>(null);
-
-  // Load repository details
-  React.useEffect(() => {
-    if (!repoId) return;
-    api.getRepository(repoId).then(setRepository).catch(() => setRepository(null));
-  }, [repoId]);
 
   // Execute literal code search against backend
   const executeSearch = React.useCallback(
