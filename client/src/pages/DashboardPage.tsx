@@ -178,7 +178,7 @@ export function DashboardPage() {
             Loading repositories and intelligence…
           </p>
         </div>
-      ) : total === 0 ? (
+      ) : total === 0 && repositories.length === 0 ? (
         /* First-run Empty State */
         <div className="rounded-lg border border-white/10 bg-surface-raised p-12 text-center space-y-4 max-w-md mx-auto my-12">
           <div className="w-12 h-12 rounded-full bg-surface-overlay flex items-center justify-center mx-auto text-accent">

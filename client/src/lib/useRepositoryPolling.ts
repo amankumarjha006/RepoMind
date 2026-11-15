@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { realApi, ApiError, RepositoryListItemOut } from './api';
+import { realApi, ApiError, RepositoryListItemOut, RepositoryListOut } from './api';
 import { hasActiveJob, computeNextPollDelay } from './polling';
 
 /** Shared query key — same as useIndexingStatus so the cache is unified. */
@@ -60,9 +60,23 @@ export function useRepositoryPolling({
     refetchInterval: pollMs,
   });
 
-  const repositories = query.data?.items ?? [];
-  const total = query.data?.total ?? 0;
-  const hasMore = query.data?.has_more ?? false;
+  const repositories: RepositoryListItemOut[] = React.useMemo(() => {
+    if (!query.data) return [];
+    if (Array.isArray(query.data)) return query.data;
+    return query.data.items ?? [];
+  }, [query.data]);
+
+  const total: number = React.useMemo(() => {
+    if (!query.data) return 0;
+    if (Array.isArray(query.data)) return query.data.length;
+    return query.data.total ?? query.data.items?.length ?? 0;
+  }, [query.data]);
+
+  const hasMore: boolean = React.useMemo(() => {
+    if (!query.data) return false;
+    if (Array.isArray(query.data)) return false;
+    return Boolean(query.data.has_more);
+  }, [query.data]);
 
   // Update polling interval when data changes
   React.useEffect(() => {
@@ -109,12 +123,16 @@ export function useRepositoryPolling({
     async (repositoryId: string) => {
       await realApi.deleteRepository(repositoryId);
       // Optimistic update: remove from cache immediately
-      queryClient.setQueryData(REPO_LIST_QUERY_KEY, (old: typeof query.data) => {
+      queryClient.setQueryData(REPO_LIST_QUERY_KEY, (old: unknown) => {
         if (!old) return old;
+        if (Array.isArray(old)) {
+          return old.filter((r: RepositoryListItemOut) => r.id !== repositoryId);
+        }
+        const obj = old as RepositoryListOut;
         return {
-          ...old,
-          items: old.items.filter((r: RepositoryListItemOut) => r.id !== repositoryId),
-          total: Math.max(0, old.total - 1),
+          ...obj,
+          items: (obj.items || []).filter((r: RepositoryListItemOut) => r.id !== repositoryId),
+          total: Math.max(0, (obj.total ?? 1) - 1),
         };
       });
     },

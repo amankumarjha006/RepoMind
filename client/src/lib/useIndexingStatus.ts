@@ -25,7 +25,7 @@ export function useIndexingStatus() {
     queryKey: INDEXING_QUERY_KEY,
     queryFn: async () => {
       const res = await realApi.listRepositories(1, 100);
-      return res.items || [];
+      return res;
     },
     // Use stale data instantly; background refetch keeps it fresh
     staleTime: 10_000,
@@ -37,7 +37,6 @@ export function useIndexingStatus() {
       }
 
       const data = queryState.state.data;
-      // If the data is the paginated shape from useRepositoryPolling, extract items
       const repos: RepositoryListItemOut[] = Array.isArray(data)
         ? data
         : (data as any)?.items ?? [];
@@ -52,8 +51,6 @@ export function useIndexingStatus() {
 
       return backoffMs;
     },
-    // Transform: the cache may hold either the array directly or the paginated object.
-    // Normalize to always return an array for this hook's consumers.
     select: (data): RepositoryListItemOut[] => {
       if (Array.isArray(data)) return data;
       return (data as any)?.items ?? [];

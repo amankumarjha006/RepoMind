@@ -82,7 +82,16 @@ export function RepositoriesPage() {
         </div>
       )}
 
-      {!loading && total === 0 ? (
+      {loading && repositories.length === 0 ? (
+        <div
+          className="flex flex-col items-center justify-center min-h-[380px] space-y-4 py-16"
+          role="status"
+          aria-label="Loading repositories"
+        >
+          <div className="w-8 h-8 rounded-full border-2 border-accent border-t-transparent animate-spin" />
+          <p className="text-xs text-text-tertiary">Loading repositories…</p>
+        </div>
+      ) : !loading && total === 0 && repositories.length === 0 ? (
         <div className="rounded-lg border border-white/10 bg-surface-raised p-12 text-center space-y-4 max-w-md mx-auto">
           <div className="w-10 h-10 rounded-full bg-surface-overlay flex items-center justify-center mx-auto text-text-secondary">
             <MaterialIcon name="source" size={20} />

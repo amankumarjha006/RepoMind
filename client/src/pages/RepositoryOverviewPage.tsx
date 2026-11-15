@@ -43,15 +43,27 @@ export function RepositoryOverviewPage() {
   });
 
   // ── React Query: file list (cached across tab switches) ──
-  const { data: files = [] } = useQuery({
+  const { data: fileData, isLoading: loadingFiles } = useQuery({
     queryKey: queryKeys.repoFiles(id!),
     queryFn: async () => {
       const res = await realApi.getRepositoryFiles(id!, 500, 0);
-      return res.files || [];
+      return res;
     },
     enabled: Boolean(id),
     staleTime: 60_000,
   });
+
+  const files = React.useMemo(() => {
+    if (!fileData) return [];
+    if (Array.isArray(fileData)) return fileData;
+    return fileData.files || [];
+  }, [fileData]);
+
+  const fileCount = React.useMemo(() => {
+    if (!fileData) return 0;
+    if (Array.isArray(fileData)) return fileData.length;
+    return fileData.total ?? fileData.files?.length ?? 0;
+  }, [fileData]);
 
   // ── Live status from shared indexing hook ──
   const currentRepoStatus = React.useMemo(() => {
@@ -252,7 +264,7 @@ export function RepositoryOverviewPage() {
               Indexed Files
             </span>
             <div className="text-sm font-semibold text-text-primary font-mono tabular-nums">
-              {files.length > 0 ? formatNumber(files.length) : '—'}
+              {fileCount > 0 ? formatNumber(fileCount) : loadingFiles ? '…' : '—'}
             </div>
           </div>
 

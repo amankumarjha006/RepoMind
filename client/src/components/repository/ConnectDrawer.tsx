@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { MaterialIcon } from '../ui/MaterialIcon';
 import { GithubIcon } from '../ui/GithubIcon';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from '../ui/drawer';
@@ -27,6 +28,7 @@ const STAGES = [
 
 export function ConnectDrawer({ open, onOpenChange, onConnected }: ConnectDrawerProps) {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [step, setStep] = React.useState<ConnectStep>('input');
   const [repoUrl, setRepoUrl] = React.useState('');
   const [branch, setBranch] = React.useState('main');
@@ -130,6 +132,7 @@ export function ConnectDrawer({ open, onOpenChange, onConnected }: ConnectDrawer
       const repo = await realApi.connectRepository(repoUrl.trim());
       setConnectedRepo(repo);
       setStep('configure');
+      queryClient.invalidateQueries({ queryKey: ['repositories'] });
       if (onConnected) {
         onConnected();
       }
@@ -155,12 +158,14 @@ export function ConnectDrawer({ open, onOpenChange, onConnected }: ConnectDrawer
 
           if (job.status === 'READY') {
             setStep('ready');
+            queryClient.invalidateQueries({ queryKey: ['repositories'] });
             if (onConnected) onConnected();
             return;
           }
 
           if (job.status === 'FAILED') {
             setStep('failed');
+            queryClient.invalidateQueries({ queryKey: ['repositories'] });
             if (onConnected) onConnected();
             return;
           }
