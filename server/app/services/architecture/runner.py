@@ -85,66 +85,68 @@ def analyze_repository_imports(
     start_time = clock_fn()
 
     tracemalloc.start()
+    try:
+        if repo_path is not None:
+            if files is None:
+                files = discover_repo_files(repo_path)
+            if read_file is None:
+                read_file = create_repo_reader(repo_path)
 
-    if repo_path is not None:
-        if files is None:
-            files = discover_repo_files(repo_path)
-        if read_file is None:
-            read_file = create_repo_reader(repo_path)
+        if files is None or read_file is None:
+            raise ValueError("Either repo_path or both files and read_file must be provided")
 
-    if files is None or read_file is None:
-        raise ValueError("Either repo_path or both files and read_file must be provided")
+        evidences: list[ImportEvidence] = []
+        unparseable_files: list[str] = []
+        languages_analyzed: set[str] = set()
+        languages_not_analyzed: set[str] = set()
 
-    evidences: list[ImportEvidence] = []
-    unparseable_files: list[str] = []
-    languages_analyzed: set[str] = set()
-    languages_not_analyzed: set[str] = set()
+        # Partition files by resolver
+        py_files: list[tuple[str, str]] = []
+        js_files: list[tuple[str, str]] = []
 
-    # Partition files by resolver
-    py_files: list[tuple[str, str]] = []
-    js_files: list[tuple[str, str]] = []
+        for rel_path, lang in files:
+            lang_lower = lang.lower()
+            if lang_lower == "python" or rel_path.endswith(".py"):
+                py_files.append((rel_path, lang))
+                languages_analyzed.add("python")
+            elif (
+                lang_lower in ("javascript", "typescript", "jsx", "tsx")
+                or rel_path.endswith((".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"))
+            ):
+                js_files.append((rel_path, lang))
+                languages_analyzed.add(lang_lower if lang_lower in ("javascript", "typescript", "jsx", "tsx") else "javascript")
+            else:
+                languages_not_analyzed.add(lang_lower)
 
-    for rel_path, lang in files:
-        lang_lower = lang.lower()
-        if lang_lower == "python" or rel_path.endswith(".py"):
-            py_files.append((rel_path, lang))
-            languages_analyzed.add("python")
-        elif (
-            lang_lower in ("javascript", "typescript", "jsx", "tsx")
-            or rel_path.endswith((".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"))
-        ):
-            js_files.append((rel_path, lang))
-            languages_analyzed.add(lang_lower if lang_lower in ("javascript", "typescript", "jsx", "tsx") else "javascript")
-        else:
-            languages_not_analyzed.add(lang_lower)
+        # 1. Run Python resolver
+        if py_files:
+            py_resolver = PythonResolver()
+            py_evidences, py_unparseable = py_resolver.resolve(
+                files=files,  # pass full file index so it can check other files if needed
+                read_file=read_file,
+                clock=clock_fn,
+                timeout_seconds=timeout_seconds,
+            )
+            evidences.extend(py_evidences)
+            unparseable_files.extend(py_unparseable)
 
-    # 1. Run Python resolver
-    if py_files:
-        py_resolver = PythonResolver()
-        py_evidences, py_unparseable = py_resolver.resolve(
-            files=files,  # pass full file index so it can check other files if needed
-            read_file=read_file,
-            clock=clock_fn,
-            timeout_seconds=timeout_seconds,
-        )
-        evidences.extend(py_evidences)
-        unparseable_files.extend(py_unparseable)
+        # 2. Run JavaScript/TypeScript resolver
+        if js_files:
+            js_resolver = JavaScriptResolver()
+            js_evidences, js_unparseable = js_resolver.resolve(
+                files=files,
+                read_file=read_file,
+                clock=clock_fn,
+                timeout_seconds=timeout_seconds,
+            )
+            evidences.extend(js_evidences)
+            unparseable_files.extend(js_unparseable)
 
-    # 2. Run JavaScript/TypeScript resolver
-    if js_files:
-        js_resolver = JavaScriptResolver()
-        js_evidences, js_unparseable = js_resolver.resolve(
-            files=files,
-            read_file=read_file,
-            clock=clock_fn,
-            timeout_seconds=timeout_seconds,
-        )
-        evidences.extend(js_evidences)
-        unparseable_files.extend(js_unparseable)
+        wall_clock = clock_fn() - start_time
+        _, peak_memory = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
 
-    wall_clock = clock_fn() - start_time
-    _, peak_memory = tracemalloc.get_traced_memory()
-    tracemalloc.stop()
     peak_mb = round(peak_memory / (1024 * 1024), 2)
 
     # Compute coverage statistics

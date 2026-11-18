@@ -9,7 +9,6 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "test": "vitest run",
-    "gen:api": "node scripts/gen-api.js",
     "test:smoke": "node scripts/smoke-test.cjs"
   },
   "dependencies": {
@@ -49,7 +48,6 @@
     "@vitejs/plugin-react": "^4.3.4",
     "eslint": "^10.13.0",
     "eslint-plugin-react-hooks": "^7.1.1",
-    "openapi-typescript": "^7.13.0",
     "playwright": "^1.64.1",
     "tailwindcss": "^4.1.0",
     "typescript": "^5.7.0",

@@ -3,8 +3,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { realApi, ApiError, RepositoryListItemOut, RepositoryListOut } from './api';
 import { hasActiveJob, computeNextPollDelay } from './polling';
 
-/** Shared query key — same as useIndexingStatus so the cache is unified. */
-export const REPO_LIST_QUERY_KEY = ['repositories', 'indexing-status'] as const;
+/** Query key prefix for repository list queries. */
+export const REPO_LIST_QUERY_KEY = ['repositories', 'list'] as const;
 
 export interface UseRepositoryPollingOptions {
   page?: number;
@@ -41,8 +41,13 @@ export function useRepositoryPolling({
   const [pollMs, setPollMs] = React.useState<number | false>(false);
   const activeSinceRef = React.useRef<number | null>(null);
 
+  const queryKey = React.useMemo(
+    () => ['repositories', 'list', { page, limit, search }] as const,
+    [page, limit, search]
+  );
+
   const query = useQuery({
-    queryKey: REPO_LIST_QUERY_KEY,
+    queryKey,
     queryFn: async () => {
       try {
         const res = await realApi.listRepositories(page, Math.max(limit, 100), search);
@@ -98,7 +103,7 @@ export function useRepositoryPolling({
   React.useEffect(() => {
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
-        queryClient.invalidateQueries({ queryKey: REPO_LIST_QUERY_KEY });
+        queryClient.invalidateQueries({ queryKey: ['repositories'] });
       }
     };
     document.addEventListener('visibilitychange', handleVisibility);
@@ -106,7 +111,7 @@ export function useRepositoryPolling({
   }, [queryClient]);
 
   const refetch = React.useCallback(async () => {
-    await queryClient.invalidateQueries({ queryKey: REPO_LIST_QUERY_KEY });
+    await queryClient.invalidateQueries({ queryKey: ['repositories'] });
   }, [queryClient]);
 
   const triggerIndex = React.useCallback(
@@ -114,7 +119,7 @@ export function useRepositoryPolling({
       await realApi.analyzeRepository(repositoryId, branch || null);
       activeSinceRef.current = Date.now();
       setPollMs(4000);
-      await queryClient.invalidateQueries({ queryKey: REPO_LIST_QUERY_KEY });
+      await queryClient.invalidateQueries({ queryKey: ['repositories'] });
     },
     [queryClient]
   );
@@ -123,7 +128,7 @@ export function useRepositoryPolling({
     async (repositoryId: string) => {
       await realApi.deleteRepository(repositoryId);
       // Optimistic update: remove from cache immediately
-      queryClient.setQueryData(REPO_LIST_QUERY_KEY, (old: unknown) => {
+      queryClient.setQueryData(queryKey, (old: unknown) => {
         if (!old) return old;
         if (Array.isArray(old)) {
           return old.filter((r: RepositoryListItemOut) => r.id !== repositoryId);
@@ -135,8 +140,9 @@ export function useRepositoryPolling({
           total: Math.max(0, (obj.total ?? 1) - 1),
         };
       });
+      await queryClient.invalidateQueries({ queryKey: ['repositories'] });
     },
-    [queryClient]
+    [queryClient, queryKey]
   );
 
   return {

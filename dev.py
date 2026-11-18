@@ -107,6 +107,7 @@ def main() -> None:
     start_worker = not args.no_worker
 
     backend_cmd, backend_env = get_command_config("uvicorn app.main:app --reload --host 127.0.0.1 --port 8000")
+    backend_env["ENABLE_EMBEDDED_WORKER"] = "False"
     npm_bin = "npm.cmd" if sys.platform == "win32" else "npm"
 
     print("=" * 65)

@@ -87,6 +87,12 @@ async def lifespan(app: FastAPI):
     if _worker_thread and _worker_thread.is_alive():
         _worker_thread.join(timeout=12)
 
+    try:
+        from app.core.redis import close_redis_client
+        await close_redis_client()
+    except Exception as e:
+        logger.warning("Error closing redis client during shutdown: %s", e)
+
 
 def get_docs_urls(env: str, enable_api_docs: bool = False) -> tuple[Optional[str], Optional[str], Optional[str]]:
     is_dev_or_test = (env or "").strip().lower() in {"development", "test"}

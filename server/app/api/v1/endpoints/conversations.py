@@ -262,5 +262,10 @@ async def stream_message(
     """
     return StreamingResponse(
         streaming_service.stream_message(user_id=user.id, conversation_id=conversation_id, request=request),
-        media_type="text/event-stream"
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
     )

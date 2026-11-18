@@ -864,10 +864,6 @@ export const realApi = {
   },
 };
 
-export const isMockEnabled = false;
-
-type MockApiType = typeof import('../mock/mockApi').mockApi;
-
 export async function getRepositoryArchitecture(
   id: string,
   signal?: AbortSignal
@@ -885,7 +881,7 @@ export async function getComponentFiles(
   return realApi.getComponentFiles(id, componentId, page, limit, { signal });
 }
 
-export const api = realApi as unknown as MockApiType & typeof realApi;
+export const api = realApi;
 
 // ── Shared React Query key factories ─────────────────────────────────
 // Using a factory pattern keeps keys consistent across pages and prefetch calls.
