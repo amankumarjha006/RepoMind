@@ -286,9 +286,6 @@ export function RepositoryHeader({
                   className="transition-transform duration-200 group-hover:scale-110"
                 />
                 <span>{tab.name}</span>
-                <span className="hidden sm:inline text-[10px] text-text-tertiary font-mono group-hover:text-text-secondary transition-colors">
-                  {tab.shortcut}
-                </span>
 
                 {tab.isActive && (
                   <>
