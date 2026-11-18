@@ -249,8 +249,8 @@ export function RepositoryOverviewPage() {
         )}
 
         {/* 1. Compact Stat Strip (4 items) */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div className="p-3.5 rounded-lg border border-white/10 bg-surface-raised space-y-1">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5 sm:gap-4">
+          <div className="p-4 rounded-xl border border-white/10 bg-surface-raised space-y-1.5">
             <span className="text-[11px] font-medium uppercase tracking-wider text-text-tertiary">
               Primary Language
             </span>
@@ -259,7 +259,7 @@ export function RepositoryOverviewPage() {
             </div>
           </div>
 
-          <div className="p-3.5 rounded-lg border border-white/10 bg-surface-raised space-y-1">
+          <div className="p-4 rounded-xl border border-white/10 bg-surface-raised space-y-1.5">
             <span className="text-[11px] font-medium uppercase tracking-wider text-text-tertiary">
               Indexed Files
             </span>
@@ -268,7 +268,7 @@ export function RepositoryOverviewPage() {
             </div>
           </div>
 
-          <div className="p-3.5 rounded-lg border border-white/10 bg-surface-raised space-y-1">
+          <div className="p-4 rounded-xl border border-white/10 bg-surface-raised space-y-1.5">
             <span className="text-[11px] font-medium uppercase tracking-wider text-text-tertiary">
               Lines of Code
             </span>
@@ -277,7 +277,7 @@ export function RepositoryOverviewPage() {
             </div>
           </div>
 
-          <div className="p-3.5 rounded-lg border border-white/10 bg-surface-raised space-y-1">
+          <div className="p-4 rounded-xl border border-white/10 bg-surface-raised space-y-1.5">
             <span className="text-[11px] font-medium uppercase tracking-wider text-text-tertiary">
               Last Indexed
             </span>
@@ -290,26 +290,26 @@ export function RepositoryOverviewPage() {
         </div>
 
         {/* 2. Start Here & Index Health 2-Column Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
           {/* Start Here Card */}
-          <div className="p-4 rounded-lg border border-white/10 bg-surface-raised space-y-3">
+          <div className="p-5 rounded-2xl border border-white/10 bg-surface-raised space-y-3.5">
             <div className="flex items-center gap-2">
               <MaterialIcon name="near_me" size={16} className="text-accent" />
               <h2 className="text-xs font-semibold uppercase tracking-wider text-text-tertiary">
                 Start Here
               </h2>
             </div>
-            <p className="text-xs text-text-secondary">
+            <p className="text-xs text-text-secondary leading-relaxed">
               Key entry points and primary modules identified in this repository:
             </p>
 
-            <div className="divide-y divide-white/5 border border-white/5 rounded-md overflow-hidden bg-surface-base/50">
+            <div className="divide-y divide-white/5 border border-white/5 rounded-xl overflow-hidden bg-surface-base/50">
               {entryPoints.length > 0 ? (
                 entryPoints.map((ep) => (
                   <Link
                     key={ep.path}
                     to={`/repositories/${repo.id}/files?path=${encodeURIComponent(ep.path)}`}
-                    className="p-2.5 flex items-center justify-between text-xs hover:bg-surface-overlay/60 transition-colors group"
+                    className="p-3 flex items-center justify-between text-xs hover:bg-surface-overlay/60 transition-colors group"
                   >
                     <div className="flex items-center gap-2 min-w-0">
                       <MaterialIcon
@@ -325,7 +325,7 @@ export function RepositoryOverviewPage() {
                   </Link>
                 ))
               ) : (
-                <div className="p-3 text-xs text-text-tertiary text-center">
+                <div className="p-4 text-xs text-text-tertiary text-center">
                   No explicit entry point files detected.
                 </div>
               )}
@@ -333,7 +333,7 @@ export function RepositoryOverviewPage() {
           </div>
 
           {/* Index Health Card */}
-          <div className="p-4 rounded-lg border border-white/10 bg-surface-raised space-y-3">
+          <div className="p-5 rounded-2xl border border-white/10 bg-surface-raised space-y-3.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <MaterialIcon name="health_and_safety" size={16} className="text-accent" />
@@ -355,7 +355,7 @@ export function RepositoryOverviewPage() {
               </div>
             </div>
 
-            <div className="space-y-2 text-xs text-text-secondary">
+            <div className="space-y-2.5 text-xs text-text-secondary">
               <div className="flex justify-between py-1 border-b border-white/5">
                 <span className="text-text-tertiary">Active Branch</span>
                 <span className="font-mono text-text-primary">{activeVersion?.branch || 'main'}</span>
@@ -380,7 +380,7 @@ export function RepositoryOverviewPage() {
                   variant="ghost"
                   size="sm"
                   onClick={handleReindex}
-                  className="w-full text-xs text-status-red border border-status-red/20 hover:bg-status-red/10"
+                  className="w-full text-xs text-status-red border border-status-red/20 hover:bg-status-red/10 rounded-lg"
                 >
                   Retry indexing
                 </Button>
@@ -390,7 +390,7 @@ export function RepositoryOverviewPage() {
         </div>
 
         {/* 3. Hotspots Table */}
-        <div className="p-4 rounded-lg border border-white/10 bg-surface-raised space-y-3">
+        <div className="p-5 rounded-2xl border border-white/10 bg-surface-raised space-y-3.5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
             <div className="flex items-center gap-2">
               <MaterialIcon name="local_fire_department" size={16} className="text-accent" />
@@ -403,13 +403,13 @@ export function RepositoryOverviewPage() {
             </span>
           </div>
 
-          <div className="divide-y divide-white/5 border border-white/5 rounded-md overflow-hidden bg-surface-base/50">
+          <div className="divide-y divide-white/5 border border-white/5 rounded-xl overflow-hidden bg-surface-base/50">
             {hotspots.length > 0 ? (
               hotspots.map((hs, index) => (
                 <Link
                   key={hs.path}
                   to={`/repositories/${repo.id}/files?path=${encodeURIComponent(hs.path)}`}
-                  className="p-2.5 flex items-center justify-between text-xs hover:bg-surface-overlay/60 transition-colors group"
+                  className="p-3 flex items-center justify-between text-xs hover:bg-surface-overlay/60 transition-colors group"
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     <span className="text-text-tertiary font-mono text-[11px] w-4">
@@ -434,11 +434,11 @@ export function RepositoryOverviewPage() {
 
         {/* 4. Conditional Index History (collapsible) */}
         {activeVersion && (
-          <div className="rounded-lg border border-white/10 bg-surface-raised overflow-hidden">
+          <div className="rounded-2xl border border-white/10 bg-surface-raised overflow-hidden">
             <button
               type="button"
               onClick={() => setHistoryOpen(!historyOpen)}
-              className="w-full p-3.5 flex items-center justify-between text-left hover:bg-surface-overlay/50 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+              className="w-full p-4 flex items-center justify-between text-left hover:bg-surface-overlay/50 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
               aria-expanded={historyOpen}
             >
               <div className="flex items-center gap-2">

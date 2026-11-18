@@ -174,11 +174,11 @@ export function RepositoryHeader({
     <div className="border-b border-white/10 bg-surface-base/90 backdrop-blur-xs sticky top-0 z-30">
       <div className="max-w-[1200px] mx-auto px-4 sm:px-6 md:px-8 pt-5 sm:pt-6 pb-1">
         {/* Top bar: Breadcrumb & Actions */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3.5">
           <div className="flex items-center gap-2.5 min-w-0">
             <Link
               to="/repositories"
-              className="text-xs text-text-tertiary hover:text-text-primary transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent rounded"
+              className="text-xs text-text-tertiary hover:text-text-primary transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent rounded-md"
             >
               Repositories
             </Link>
@@ -199,7 +199,7 @@ export function RepositoryHeader({
               <button
                 type="button"
                 onClick={handleCopySha}
-                className="hidden md:inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-mono bg-surface-raised border border-white/10 text-text-secondary hover:text-text-primary hover:border-white/20 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+                className="hidden md:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-[11px] font-mono bg-surface-raised border border-white/10 text-text-secondary hover:text-text-primary hover:border-white/20 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
                 title="Click to copy full commit SHA"
               >
                 <span>{branchName}@{shortSha(commitSha)}</span>
@@ -222,7 +222,7 @@ export function RepositoryHeader({
             <button
               type="button"
               onClick={() => togglePin(repository.id)}
-              className="text-text-tertiary hover:text-accent p-1.5 rounded transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+              className="text-text-tertiary hover:text-accent p-1.5 rounded-lg hover:bg-white/[0.04] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
               aria-label={pinned ? 'Unpin repository' : 'Pin repository'}
             >
               <MaterialIcon
@@ -243,7 +243,7 @@ export function RepositoryHeader({
                   'noopener,noreferrer'
                 )
               }
-              className="h-7 px-2 text-xs text-text-secondary hover:text-text-primary gap-1 border border-white/10"
+              className="h-7.5 px-2.5 text-xs text-text-secondary hover:text-text-primary gap-1 border border-white/10 rounded-lg hover:bg-white/[0.04]"
             >
               <MaterialIcon name="open_in_new" size={14} />
               GitHub
@@ -255,7 +255,7 @@ export function RepositoryHeader({
                 size="sm"
                 onClick={handleReindexClick}
                 disabled={isReindexing}
-                className="h-7 px-2 text-xs text-text-secondary hover:text-text-primary gap-1 border border-white/10"
+                className="h-7.5 px-2.5 text-xs text-text-secondary hover:text-text-primary gap-1 border border-white/10 rounded-lg hover:bg-white/[0.04]"
               >
                 <MaterialIcon name="refresh" size={14} spin={isReindexing} />
                 Re-index
@@ -266,7 +266,7 @@ export function RepositoryHeader({
 
         {/* 5 Tab Links with Motion layout indicator */}
         <nav
-          className="flex items-center gap-1 overflow-x-auto no-scrollbar -mb-px"
+          className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1"
           aria-label="Repository navigation"
         >
           {navTabs.map((tab) => {
@@ -274,32 +274,29 @@ export function RepositoryHeader({
               <Link
                 key={tab.id}
                 to={tab.path}
-                className={`group relative flex items-center gap-1.5 px-3 py-2 text-xs font-medium transition-all duration-200 select-none rounded-t focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent ${
+                className={`group relative flex items-center gap-2 px-3.5 py-1.5 text-xs font-medium transition-all duration-200 select-none rounded-lg focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent ${
                   tab.isActive
                     ? 'text-accent font-semibold'
-                    : 'text-text-secondary hover:text-text-primary hover:bg-white/[0.03]'
+                    : 'text-text-secondary hover:text-text-primary hover:bg-white/[0.04]'
                 }`}
               >
                 <MaterialIcon
                   name={tab.icon}
                   size={15}
-                  className="transition-transform duration-200 group-hover:scale-110"
+                  className="transition-transform duration-200 group-hover:scale-105"
                 />
                 <span>{tab.name}</span>
-                <span className="hidden sm:inline text-[10px] text-text-tertiary font-mono group-hover:text-text-secondary transition-colors">
-                  {tab.shortcut}
-                </span>
 
                 {tab.isActive && (
                   <>
                     <motion.div
                       layoutId="repo-header-active-pill"
-                      className="absolute inset-0 rounded-t bg-white/[0.06] -z-10"
+                      className="absolute inset-0 rounded-lg bg-white/[0.07] -z-10"
                       transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                     />
                     <motion.div
                       layoutId="repo-header-active-tab"
-                      className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-accent shadow-[0_0_12px_rgba(138,180,248,0.7)]"
+                      className="absolute -bottom-1 left-2.5 right-2.5 h-[2px] bg-accent rounded-full shadow-[0_0_10px_rgba(138,180,248,0.6)]"
                       transition={{ type: 'spring', stiffness: 420, damping: 30 }}
                     />
                   </>

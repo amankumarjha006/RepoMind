@@ -43,6 +43,8 @@ class Settings(BaseSettings):
     
     # AI & Embedding Credentials (Future integration)
     GEMINI_API_KEY: Optional[str] = None
+    CLOUDFLARE_ACCOUNT_ID: Optional[str] = None
+    CLOUDFLARE_API_TOKEN: Optional[str] = None
 
     # Indexing Configuration
     MAX_INDEXABLE_FILE_SIZE_BYTES: int = 200000  # 200 KB per-file limit

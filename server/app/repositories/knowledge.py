@@ -91,12 +91,6 @@ class KnowledgeRepository:
         self.db.flush()
         return result.rowcount
 
-    def count_files_for_version(self, repository_version_id: UUID) -> int:
-        """Count files for a given repository version."""
-        return self.db.execute(
-            select(func.count(File.id)).where(File.repository_version_id == repository_version_id)
-        ).scalar_one()
-
     def count_symbols_for_version(self, repository_version_id: UUID) -> int:
         """Count symbols for a given repository version."""
         return self.db.execute(

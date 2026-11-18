@@ -106,10 +106,10 @@
   --font-mono: 'Google Sans Code Variable', 'Google Sans Code', monospace;
 
   /* ── Density & Radii ────────────────────────────────────── */
-  --radius-panel: 8px;
-  --radius-card: 8px;
-  --radius-control: 6px;
-  --radius-modal: 12px;
+  --radius-panel: 12px;
+  --radius-card: 14px;
+  --radius-control: 8px;
+  --radius-modal: 16px;
   --radius-pill: 9999px;
 
   /* ── Dimensions ─────────────────────────────────────────── */
@@ -137,10 +137,10 @@
 
 /* ── Root Variable Aliases ────────────────────────────────── */
 :root {
-  --radius-panel: 8px;
-  --radius-card: 8px;
-  --radius-control: 6px;
-  --radius-modal: 12px;
+  --radius-panel: 12px;
+  --radius-card: 14px;
+  --radius-control: 8px;
+  --radius-modal: 16px;
   --radius-pill: 9999px;
 
   --color-page: #0B0D10;
