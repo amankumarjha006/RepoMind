@@ -90,6 +90,9 @@ class EmbeddingService:
                 token_delay = total_tokens / tokens_per_sec
                 sleep_duration = max(settings.EMBEDDING_MIN_INTERVAL_SECONDS, token_delay)
                 time.sleep(sleep_duration)
+            elif settings.EMBEDDING_PROVIDER in ("cloudflare", "workers-ai", "fastembed", "local"):
+                # No artificial TPM pacing needed for Cloudflare Workers AI or local embeddings
+                pass
             elif settings.EMBEDDING_MIN_INTERVAL_SECONDS > 0:
                 time.sleep(settings.EMBEDDING_MIN_INTERVAL_SECONDS)
 

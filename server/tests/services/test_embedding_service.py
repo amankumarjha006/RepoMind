@@ -53,7 +53,8 @@ def test_text_builder_deterministic():
     assert text1 == text2
 
 @patch("time.sleep")
-def test_embedding_service_batching(mock_sleep):
+def test_embedding_service_batching(mock_sleep, monkeypatch):
+    monkeypatch.setattr("app.core.config.settings.EMBEDDING_PROVIDER", "google")
     provider = FakeEmbeddingProvider(dimension=settings.EMBEDDING_DIMENSION)
     repo = FakeKnowledgeRepository()
     service = EmbeddingService(repo, provider)
