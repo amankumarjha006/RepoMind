@@ -76,6 +76,7 @@ class Settings(BaseSettings):
     GEMINI_LLM_MODEL_PRIMARY: str = "gemini-2.5-flash"
     GEMINI_LLM_MODEL_FALLBACK_1: Optional[str] = "gemini-2.0-flash"
     GEMINI_LLM_MODEL_FALLBACK_2: Optional[str] = "gemini-1.5-flash"
+    CLOUDFLARE_LLM_MODEL: str = "@cf/meta/llama-3.1-8b-instruct"
     ARCHITECTURE_LLM_ENRICHMENT_ENABLED: bool = True
     OPENROUTER_API_KEY: Optional[str] = None
     OPENROUTER_FALLBACK_MODEL: str = "openrouter/free"
