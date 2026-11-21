@@ -196,3 +196,33 @@ def test_update_job_status_sanitizes_null_bytes_and_invalid_failure_code(mock_db
     mock_db.commit.assert_called_once()
 
 
+def test_fetch_repository_resolves_oauth_token_fallback(mock_db, version):
+    """Verify that _fetch_repository falls back to UserRepository -> GithubAccount token when github_installation_id is None."""
+    from app.models.repository import Repository
+    from app.models.user import GithubAccount
+
+    service = IndexingService(mock_db)
+    repo = Repository(
+        id=version.repository_id,
+        github_installation_id=None,
+        github_repo_id="12345",
+        owner="test-owner",
+        name="test-repo",
+        clone_url="https://github.com/test-owner/test-repo.git",
+        is_private=True,
+    )
+
+    mock_account = GithubAccount(
+        access_token_encrypted="encrypted_tok_123"
+    )
+    mock_db.execute.return_value.scalars.return_value.first.return_value = mock_account
+
+    with patch("app.services.indexing.clone_repository") as mock_clone, \
+         patch("app.services.github_token.get_decrypted_token", return_value="ghp_real_decrypted_token"):
+        path = service._fetch_repository(repo, version)
+        assert mock_clone.called
+        assert mock_clone.call_args[1]["github_token"] == "ghp_real_decrypted_token"
+        service._cleanup_repo(path)
+
+
+

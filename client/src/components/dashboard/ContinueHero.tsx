@@ -36,6 +36,8 @@ export function ContinueHero({ repository, lastConversation }: ContinueHeroProps
                     ? 'indexing'
                     : category === 'FAILED'
                     ? 'failed'
+                    : category === 'NOT_INDEXED'
+                    ? 'not_indexed'
                     : 'ready'
                 }
               />

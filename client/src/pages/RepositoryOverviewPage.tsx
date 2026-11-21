@@ -105,11 +105,18 @@ export function RepositoryOverviewPage() {
           stage: 'Analyzing',
           description: 'Generating vector embeddings and component architecture map',
         };
-      default:
+      case 'READY':
+      case 'SUCCESS':
         return {
           percent: 100,
           stage: 'Ready',
           description: 'Repository indexed and ready',
+        };
+      default:
+        return {
+          percent: 0,
+          stage: 'Not Indexed',
+          description: 'Repository connected but not yet indexed.',
         };
     }
   }, [rawStatus]);
@@ -214,6 +221,30 @@ export function RepositoryOverviewPage() {
       <RepositoryHeader repository={repo} onReindex={handleReindex} />
 
       <div className="max-w-[1200px] mx-auto px-4 sm:px-6 md:px-8 py-8 sm:py-10 pb-16 space-y-8">
+        {/* Unindexed Repository Action Banner */}
+        {!activeVersion && !isCurrentlyIndexing && (
+          <div className="p-5 rounded-2xl border border-white/10 bg-surface-raised space-y-3.5 shadow-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-[#6F757C]" aria-hidden="true" />
+                  <h2 className="text-sm font-semibold text-text-primary">Repository Connected — Ready to Index</h2>
+                </div>
+                <p className="text-xs text-text-secondary leading-relaxed max-w-xl">
+                  Analyze code structure, extract AST symbols, generate Cloudflare Workers AI embeddings, and build the architecture map for code search and AI chat.
+                </p>
+              </div>
+              <Button
+                onClick={handleReindex}
+                className="shrink-0 gap-2 bg-[var(--color-btn-primary-bg)] text-[var(--color-btn-primary-text)] hover:bg-[var(--color-btn-primary-hover)] font-medium text-xs px-4 py-2 rounded-lg cursor-pointer"
+              >
+                <MaterialIcon name="play_arrow" size={16} />
+                <span>Start Indexing</span>
+              </Button>
+            </div>
+          </div>
+        )}
+
         {/* Active Indexing / Re-indexing Progress Banner */}
         {isCurrentlyIndexing && (
           <div className="p-4 rounded-lg border border-accent/30 bg-accent/5 backdrop-blur-xs space-y-3 animate-fade-in shadow-xs">
@@ -348,10 +379,14 @@ export function RepositoryOverviewPage() {
                       ? 'indexing'
                       : statusCategory === 'FAILED'
                       ? 'failed'
+                      : statusCategory === 'NOT_INDEXED'
+                      ? 'not_indexed'
                       : 'ready'
                   }
                 />
-                <span className="capitalize">{statusCategory.toLowerCase()}</span>
+                <span className="capitalize">
+                  {statusCategory === 'NOT_INDEXED' ? 'Not indexed' : statusCategory.toLowerCase()}
+                </span>
               </div>
             </div>
 
@@ -373,6 +408,19 @@ export function RepositoryOverviewPage() {
                 </span>
               </div>
             </div>
+
+            {statusCategory === 'NOT_INDEXED' && (
+              <div className="pt-2">
+                <Button
+                  size="sm"
+                  onClick={handleReindex}
+                  className="w-full text-xs gap-1.5 bg-[var(--color-btn-primary-bg)] text-[var(--color-btn-primary-text)] hover:bg-[var(--color-btn-primary-hover)] rounded-lg font-medium cursor-pointer"
+                >
+                  <MaterialIcon name="play_arrow" size={15} />
+                  <span>Start Indexing</span>
+                </Button>
+              </div>
+            )}
 
             {statusCategory === 'FAILED' && (
               <div className="pt-2">

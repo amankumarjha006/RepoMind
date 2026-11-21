@@ -169,7 +169,7 @@ export function RepositoriesTable({
           if (category === 'INDEXING') {
             return (
               <div className="flex items-center gap-2">
-                <StatusDot status="indexing" />
+                <StatusDot status="indexing" showText={false} />
                 <span className="text-xs text-status-amber capitalize">
                   {status.toLowerCase()}
                 </span>
@@ -181,7 +181,7 @@ export function RepositoriesTable({
           if (category === 'FAILED') {
             return (
               <div className="flex items-center gap-2">
-                <StatusDot status="failed" />
+                <StatusDot status="failed" showText={false} />
                 <span className="text-xs text-status-red font-medium">Failed</span>
                 {repo.latest_job_failure_code && (
                   <span className="text-[10px] font-mono text-status-red/80 bg-status-red/10 px-1 py-0.5 rounded">
@@ -205,9 +205,31 @@ export function RepositoriesTable({
             );
           }
 
+          if (category === 'NOT_INDEXED') {
+            return (
+              <div className="flex items-center gap-2">
+                <StatusDot status="not_indexed" showText={false} />
+                <span className="text-xs text-text-tertiary">Not indexed</span>
+                {onTriggerIndex && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-6 px-2 text-[11px] border-accent/30 text-accent hover:bg-accent/10"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onTriggerIndex(repo.id);
+                    }}
+                  >
+                    Index Now
+                  </Button>
+                )}
+              </div>
+            );
+          }
+
           return (
             <div className="flex items-center gap-2">
-              <StatusDot status="ready" />
+              <StatusDot status="ready" showText={false} />
               <span className="text-xs text-text-secondary">Ready</span>
             </div>
           );
@@ -495,16 +517,34 @@ export function RepositoriesTable({
                           ? 'indexing'
                           : category === 'FAILED'
                           ? 'failed'
+                          : category === 'NOT_INDEXED'
+                          ? 'not_indexed'
                           : 'ready'
                       }
+                      showText={false}
                     />
                     <span className="capitalize">
                       {category === 'INDEXING'
                         ? 'Indexing...'
                         : category === 'FAILED'
                         ? 'Failed'
+                        : category === 'NOT_INDEXED'
+                        ? 'Not indexed'
                         : 'Ready'}
                     </span>
+                    {category === 'NOT_INDEXED' && onTriggerIndex && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-5 px-1.5 text-[10px] border-accent/30 text-accent hover:bg-accent/10 ml-1"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onTriggerIndex(repo.id);
+                        }}
+                      >
+                        Index
+                      </Button>
+                    )}
                   </div>
                   {repo.active_version_short_sha && (
                     <span className="font-mono text-[11px] text-text-tertiary">

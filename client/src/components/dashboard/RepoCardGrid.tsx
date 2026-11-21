@@ -59,6 +59,8 @@ export function RepoCardGrid({ repositories, onHoverRepo }: RepoCardGridProps) {
                         ? 'indexing'
                         : category === 'FAILED'
                         ? 'failed'
+                        : category === 'NOT_INDEXED'
+                        ? 'not_indexed'
                         : 'ready'
                     }
                   />

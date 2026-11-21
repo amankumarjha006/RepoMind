@@ -1,17 +1,23 @@
 import type { RepositoryListItemOut } from './api';
 
-export type StatusCategory = 'READY' | 'INDEXING' | 'FAILED' | 'OTHER';
+export type StatusCategory = 'READY' | 'INDEXING' | 'FAILED' | 'NOT_INDEXED' | 'OTHER';
 
 export function getRepositoryStatusCategory(repo: RepositoryListItemOut): StatusCategory {
   const status = (repo.latest_job_status || '').toUpperCase();
-  if (status === 'READY' || status === 'SUCCESS' || (repo.active_version_short_sha && !repo.latest_job_status)) {
+  if (status === 'READY' || status === 'SUCCESS') {
     return 'READY';
   }
-  if (['INDEXING', 'QUEUED', 'FETCHING', 'ANALYZING', 'CLONING'].includes(status)) {
+  if (['INDEXING', 'QUEUED', 'FETCHING', 'ANALYZING', 'CLONING', 'PENDING'].includes(status)) {
     return 'INDEXING';
   }
   if (status === 'FAILED') {
     return 'FAILED';
+  }
+  if (repo.active_version_short_sha && !repo.latest_job_status) {
+    return 'READY';
+  }
+  if (!repo.active_version_short_sha && !repo.latest_job_status) {
+    return 'NOT_INDEXED';
   }
   return 'OTHER';
 }
@@ -30,7 +36,7 @@ export function shouldShowStatusFilter(repositories: RepositoryListItemOut[]): b
  */
 export function filterRepositoriesByStatus(
   repositories: RepositoryListItemOut[],
-  filter: 'ALL' | 'READY' | 'INDEXING' | 'FAILED'
+  filter: 'ALL' | 'READY' | 'INDEXING' | 'FAILED' | 'NOT_INDEXED'
 ): RepositoryListItemOut[] {
   if (!repositories) return [];
   if (filter === 'ALL') return repositories;

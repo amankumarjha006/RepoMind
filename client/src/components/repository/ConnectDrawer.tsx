@@ -131,8 +131,18 @@ export function ConnectDrawer({ open, onOpenChange, onConnected }: ConnectDrawer
     try {
       const repo = await realApi.connectRepository(repoUrl.trim());
       setConnectedRepo(repo);
-      setStep('configure');
       queryClient.invalidateQueries({ queryKey: ['repositories'] });
+
+      // Automatically queue indexing for the default branch so the user never gets stuck with an unindexed repo
+      try {
+        const result = await realApi.analyzeRepository(repo.id, branch.trim() || undefined);
+        setStep('indexing');
+        startPollingJob(repo.id, result.job_id);
+      } catch {
+        // Fall back to configure step if auto-trigger needs manual branch confirmation
+        setStep('configure');
+      }
+
       if (onConnected) {
         onConnected();
       }

@@ -101,6 +101,21 @@ describe('repositoryTableUtils', () => {
     it('identifies FAILED status', () => {
       expect(getRepositoryStatusCategory(mockRepos[2])).toBe('FAILED');
     });
+
+    it('identifies NOT_INDEXED status for repos without jobs or active versions', () => {
+      const unindexedRepo: RepositoryListItemOut = {
+        id: 'repo-unindexed',
+        owner: 'user',
+        name: 'new-repo',
+        is_private: false,
+        created_at: '2026-01-04T00:00:00Z',
+        latest_job_status: null,
+        latest_job_failure_code: null,
+        active_version_short_sha: null,
+        last_indexed_at: null,
+      };
+      expect(getRepositoryStatusCategory(unindexedRepo)).toBe('NOT_INDEXED');
+    });
   });
 
   describe('shouldShowStatusFilter', () => {

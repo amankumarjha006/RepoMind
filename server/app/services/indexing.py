@@ -645,6 +645,25 @@ class IndexingService:
                     github_token = get_decrypted_token(account)
                 except Exception:
                     github_token = None
+
+        if not github_token:
+            from app.models.repository import UserRepository
+            from app.models.user import GithubAccount
+            from app.services.github_token import get_decrypted_token
+            from sqlalchemy import select
+
+            stmt = (
+                select(GithubAccount)
+                .join(UserRepository, UserRepository.user_id == GithubAccount.user_id)
+                .where(UserRepository.repository_id == repository.id)
+                .order_by(GithubAccount.created_at.desc())
+            )
+            account = self.db.execute(stmt).scalars().first()
+            if account and account.access_token_encrypted:
+                try:
+                    github_token = get_decrypted_token(account)
+                except Exception:
+                    github_token = None
                 
         try:
             clone_repository(repository.clone_url, temp_dir, version.branch, github_token=github_token)

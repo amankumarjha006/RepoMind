@@ -213,6 +213,8 @@ export function RepositoryHeader({
                   ? 'indexing'
                   : statusCategory === 'FAILED'
                   ? 'failed'
+                  : statusCategory === 'NOT_INDEXED'
+                  ? 'not_indexed'
                   : 'ready'
               }
             />
@@ -251,14 +253,19 @@ export function RepositoryHeader({
 
             {(onReindex || onRefresh) && (
               <Button
-                variant="ghost"
+                variant={statusCategory === 'NOT_INDEXED' ? 'default' : 'ghost'}
                 size="sm"
                 onClick={handleReindexClick}
                 disabled={isReindexing}
-                className="h-7.5 px-2.5 text-xs text-text-secondary hover:text-text-primary gap-1 border border-white/10 rounded-lg hover:bg-white/[0.04]"
+                className={cn(
+                  'h-7.5 px-2.5 text-xs gap-1 rounded-lg',
+                  statusCategory === 'NOT_INDEXED'
+                    ? 'bg-[var(--color-btn-primary-bg)] text-[var(--color-btn-primary-text)] hover:bg-[var(--color-btn-primary-hover)] font-medium cursor-pointer'
+                    : 'text-text-secondary hover:text-text-primary border border-white/10 hover:bg-white/[0.04]'
+                )}
               >
-                <MaterialIcon name="refresh" size={14} spin={isReindexing} />
-                Re-index
+                <MaterialIcon name={statusCategory === 'NOT_INDEXED' ? 'play_arrow' : 'refresh'} size={14} spin={isReindexing} />
+                {statusCategory === 'NOT_INDEXED' ? 'Start Indexing' : 'Re-index'}
               </Button>
             )}
           </div>

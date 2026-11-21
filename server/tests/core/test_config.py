@@ -174,3 +174,36 @@ def test_docker_compose_prod_forces_production_and_isolates_db():
         ports = services.get(svc, {}).get("ports", [])
         for port in ports:
             assert port.startswith("127.0.0.1:"), f"{svc} port {port} must bind to 127.0.0.1"
+
+
+def test_cloudflare_embedding_settings_calibration():
+    # 1. Defaults automatically elevated for Cloudflare Workers AI
+    s_cf = Settings(_env_file=None, ENVIRONMENT="development", EMBEDDING_PROVIDER="cloudflare")
+    assert s_cf.EMBEDDING_MAX_BATCH_ITEMS == 100
+    assert s_cf.EMBEDDING_MAX_BATCH_TOKENS == 32000
+    assert s_cf.EMBEDDING_MIN_INTERVAL_SECONDS == 0.0
+
+    # 2. Clamped to 100 max to respect Cloudflare hard limit if user sets > 100
+    s_cf_clamped = Settings(
+        _env_file=None,
+        ENVIRONMENT="development",
+        EMBEDDING_PROVIDER="cloudflare",
+        EMBEDDING_MAX_BATCH_ITEMS=150,
+    )
+    assert s_cf_clamped.EMBEDDING_MAX_BATCH_ITEMS == 100
+
+    # 3. User custom setting under 100 respected
+    s_cf_custom = Settings(
+        _env_file=None,
+        ENVIRONMENT="development",
+        EMBEDDING_PROVIDER="cloudflare",
+        EMBEDDING_MAX_BATCH_ITEMS=50,
+    )
+    assert s_cf_custom.EMBEDDING_MAX_BATCH_ITEMS == 50
+
+    # 4. Google provider retains conservative rate-pacing defaults
+    s_google = Settings(_env_file=None, ENVIRONMENT="development", EMBEDDING_PROVIDER="google")
+    assert s_google.EMBEDDING_MAX_BATCH_ITEMS == 32
+    assert s_google.EMBEDDING_MAX_BATCH_TOKENS == 8500
+    assert s_google.EMBEDDING_MIN_INTERVAL_SECONDS == 2.0
+

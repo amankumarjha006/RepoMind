@@ -130,6 +130,24 @@ class Settings(BaseSettings):
         return ["http://localhost:3000", "http://127.0.0.1:3000"]
 
     @model_validator(mode="after")
+    def calibrate_embedding_settings(self) -> "Settings":
+        provider = (self.EMBEDDING_PROVIDER or "").lower()
+        if provider in ("cloudflare", "workers-ai"):
+            # Cloudflare Workers AI supports up to 100 items per request
+            if self.EMBEDDING_MAX_BATCH_ITEMS > 100:
+                self.EMBEDDING_MAX_BATCH_ITEMS = 100
+            elif self.EMBEDDING_MAX_BATCH_ITEMS == 32:
+                # Elevate default from Google's conservative 32 to Cloudflare's supported 100
+                self.EMBEDDING_MAX_BATCH_ITEMS = 100
+
+            if self.EMBEDDING_MAX_BATCH_TOKENS == 8500:
+                self.EMBEDDING_MAX_BATCH_TOKENS = 32000
+
+            if self.EMBEDDING_MIN_INTERVAL_SECONDS == 2.0:
+                self.EMBEDDING_MIN_INTERVAL_SECONDS = 0.0
+        return self
+
+    @model_validator(mode="after")
     def validate_production_environment(self) -> "Settings":
         env = (self.ENVIRONMENT or "").strip().lower()
         if env not in {"development", "test"}:

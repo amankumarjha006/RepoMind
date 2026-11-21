@@ -273,3 +273,30 @@ async def test_analyze_repository_matches_owner_account(async_client, mock_redis
 
     assert response.status_code == 202
     mock_decrypt.assert_called_once_with(org_acc)
+
+
+@pytest.mark.asyncio
+async def test_analyze_repository_redis_enqueue_failure_returns_503(async_client, mock_auth, mock_db, mocker, repo_id, mock_auth_dep):
+    async_client.cookies.set(settings.SESSION_COOKIE_NAME, "valid_session")
+    mocker.patch("app.api.v1.endpoints.repositories.get_decrypted_token", return_value="decrypted")
+    mocker.patch("app.api.v1.endpoints.repositories.enqueue_indexing_job_async", side_effect=Exception("Redis connection refused"))
+
+    mock_github = mocker.patch("app.api.v1.endpoints.repositories.GithubService").return_value
+    mock_github.get_branch_commit = AsyncMock(return_value="commit_123")
+
+    mock_repo_service = mocker.patch("app.api.v1.endpoints.repositories.RepositoryService").return_value
+    version = RepositoryVersion(id=uuid4(), repository_id=repo_id, commit_sha="commit_123", index_status="PENDING")
+    job = IndexJob(id=uuid4(), repository_id=repo_id, repository_version_id=version.id, status="QUEUED")
+    mock_repo_service.queue_analysis.return_value = (version, job)
+
+    response = await async_client.post(
+        f"{settings.API_V1_STR}/repositories/{repo_id}/analyze",
+        json={"branch": "develop"}
+    )
+
+    assert response.status_code == 503
+    assert response.json()["error"]["code"] == "QUEUE_UNAVAILABLE"
+    assert job.status == "FAILED"
+    assert job.failure_code == "INTERNAL_ERROR"
+    mock_db.commit.assert_called()
+

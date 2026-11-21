@@ -1,4 +1,7 @@
+import logging
 import redis.asyncio as redis
+
+logger = logging.getLogger(__name__)
 from fastapi import APIRouter, Depends, Query, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
@@ -203,6 +206,7 @@ async def connect_repository(
             }
         )
     except Exception as e:
+        logger.error(f"Unexpected error in analyze_repository: {e}", exc_info=True)
         return JSONResponse(
             status_code=500,
             content={
@@ -742,7 +746,23 @@ async def analyze_repository(
             repository=repository, branch=branch, commit_sha=commit_sha
         )
         
-        await enqueue_indexing_job_async(job.id, redis_client)
+        try:
+            await enqueue_indexing_job_async(job.id, redis_client)
+        except Exception as enqueue_err:
+            logger.error("Failed to enqueue indexing job %s to Redis: %s", job.id, enqueue_err)
+            job.status = "FAILED"
+            job.failure_code = "INTERNAL_ERROR"
+            job.error_message = f"Indexing queue unavailable: {enqueue_err}"
+            db.commit()
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "error": {
+                        "code": "QUEUE_UNAVAILABLE",
+                        "message": "Indexing queue is temporarily unavailable. Please try again in a few moments."
+                    }
+                }
+            )
         
         return AnalyzeRepositoryOut(
             job_id=job.id,
@@ -771,6 +791,7 @@ async def analyze_repository(
             }
         )
     except Exception as e:
+        logger.error(f"Unexpected error in analyze_repository: {e}", exc_info=True)
         return JSONResponse(
             status_code=500,
             content={
@@ -867,6 +888,7 @@ async def query_repository(
             content={"error": {"code": "UPSTREAM_SERVICE_ERROR", "message": "AI service encountered an error processing the request."}}
         )
     except Exception as e:
+        logger.error(f"Unexpected error in analyze_repository: {e}", exc_info=True)
         return JSONResponse(
             status_code=500,
             content={"error": {"code": "INTERNAL_SERVER_ERROR", "message": "An unexpected error occurred."}}
