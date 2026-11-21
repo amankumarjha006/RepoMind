@@ -4,7 +4,7 @@ import { motion } from 'motion/react';
 import { MaterialIcon } from '../ui/MaterialIcon';
 import { StatusDot } from '../ui/StatusDot';
 import { Button } from '../ui/button';
-import { shortSha } from '../../lib/utils';
+import { shortSha, cn } from '../../lib/utils';
 import { isInputFocused } from '../../lib/keyboard';
 import { usePinnedRepos } from '../../lib/pinnedRepos';
 import { getRepositoryStatusCategory } from '../../lib/repositoryTableUtils';
@@ -253,7 +253,7 @@ export function RepositoryHeader({
 
             {(onReindex || onRefresh) && (
               <Button
-                variant={statusCategory === 'NOT_INDEXED' ? 'default' : 'ghost'}
+                variant={statusCategory === 'NOT_INDEXED' ? 'primary' : 'ghost'}
                 size="sm"
                 onClick={handleReindexClick}
                 disabled={isReindexing}
