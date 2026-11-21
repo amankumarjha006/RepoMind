@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from typing import Optional
 import logging
+import os
 import subprocess
 import sys
 import threading
