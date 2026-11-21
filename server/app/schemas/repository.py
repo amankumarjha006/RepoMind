@@ -75,6 +75,8 @@ class RepositoryDetailOut(BaseModel):
     lines_of_code: int = 0
     ast_nodes: int = 0
     primary_language: str = "TypeScript"
+    latest_job_status: str | None = None
+    latest_job_failure_code: str | None = None
     
     model_config = ConfigDict(from_attributes=True)
 

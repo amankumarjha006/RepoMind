@@ -353,6 +353,18 @@ class RepositoryRepository:
         )
         return self.db.execute(stmt).scalar_one_or_none()
 
+    def get_latest_job(
+        self,
+        repository_id: UUID,
+    ) -> IndexJob | None:
+        stmt = (
+            select(IndexJob)
+            .where(IndexJob.repository_id == repository_id)
+            .order_by(IndexJob.created_at.desc(), IndexJob.id.desc())
+            .limit(1)
+        )
+        return self.db.execute(stmt).scalar_one_or_none()
+
     def get_job_by_id(
         self,
         job_id: UUID,

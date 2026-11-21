@@ -246,6 +246,11 @@ def get_repository(
         except Exception:
             pass
 
+    active_job = repo_repo.get_active_job(repository.id)
+    latest_job = active_job or repo_repo.get_latest_job(repository.id)
+    latest_job_status = latest_job.status if latest_job else None
+    latest_job_failure_code = latest_job.failure_code if latest_job else None
+
     return RepositoryDetailOut(
         id=repository.id,
         owner=repository.owner,
@@ -255,6 +260,8 @@ def get_repository(
         lines_of_code=lines_of_code,
         ast_nodes=ast_nodes,
         primary_language=primary_language,
+        latest_job_status=latest_job_status,
+        latest_job_failure_code=latest_job_failure_code,
     )
 
 @router.delete("/{repository_id}", status_code=status.HTTP_204_NO_CONTENT, summary="Archive Repository")

@@ -17,6 +17,8 @@ logger = logging.getLogger(__name__)
 
 _worker_thread: Optional[threading.Thread] = None
 _worker_stop_event: Optional[threading.Event] = None
+_worker_proc: Optional[subprocess.Popen] = None
+_worker_last_exit: Optional[int] = None
 
 
 def _run_worker_supervisor(stop_event: threading.Event) -> None:
@@ -25,21 +27,28 @@ def _run_worker_supervisor(stop_event: threading.Event) -> None:
     Spawns the worker as an isolated OS subprocess to protect FastAPI's GIL
     and event loop, and automatically restarts it if it unexpectedly exits.
     """
+    global _worker_proc, _worker_last_exit
     server_dir = str(Path(__file__).resolve().parent.parent)
     logger.info("Embedded indexing worker supervisor started.")
 
     while not stop_event.is_set():
         try:
             logger.info("Spawning embedded indexing worker process...")
+            worker_env = dict(os.environ)
+            worker_env["PYTHONUNBUFFERED"] = "1"
             proc = subprocess.Popen(
                 [sys.executable, "-m", "app.workers.indexing_worker"],
                 cwd=server_dir,
+                env=worker_env,
             )
+            _worker_proc = proc
             logger.info("Embedded indexing worker spawned with PID %s", proc.pid)
 
             while not stop_event.is_set():
                 ret = proc.poll()
                 if ret is not None:
+                    _worker_last_exit = ret
+                    _worker_proc = None
                     if not stop_event.is_set():
                         logger.warning(
                             "Indexing worker process (PID %s) exited with code %s. Restarting in 5s...",
@@ -275,6 +284,31 @@ async def global_exception_handler(request: Request, exc: Exception):
 def health_check():
     """Simple foundation health check endpoint."""
     return {"status": "ok"}
+
+@app.get("/health/worker", tags=["health"])
+async def worker_health_check():
+    """Diagnostics endpoint reporting background worker and queue status."""
+    is_alive = _worker_proc is not None and _worker_proc.poll() is None
+    pid = _worker_proc.pid if is_alive else None
+
+    queue_len = None
+    processing_len = None
+    try:
+        from app.core.redis import get_redis_client
+        rc = await get_redis_client()
+        queue_len = await rc.llen("indexing_jobs")
+        processing_len = await rc.llen("indexing_jobs:processing")
+    except Exception:
+        pass
+
+    return {
+        "embedded_worker_enabled": getattr(settings, "ENABLE_EMBEDDED_WORKER", True),
+        "worker_running": is_alive,
+        "worker_pid": pid,
+        "last_exit_code": _worker_last_exit,
+        "queue_length": queue_len,
+        "processing_length": processing_len,
+    }
 
 import asyncio
 from sqlalchemy import text

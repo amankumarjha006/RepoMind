@@ -247,26 +247,35 @@ class IndexingWorker:
         except Exception as e:
             logger.error(f"Failed to inspect processing queue: {e}")
 
-        # 2. Check any DB jobs stuck in FETCHING or INDEXING with no active worker
+        # 2. Check any DB jobs stuck in QUEUED, FETCHING, INDEXING, or ANALYZING with no active worker
         try:
             stuck_jobs = list(
                 db.execute(
-                    select(IndexJob).where(IndexJob.status.in_(["FETCHING", "INDEXING"]))
+                    select(IndexJob).where(
+                        IndexJob.status.in_(["QUEUED", "FETCHING", "INDEXING", "ANALYZING"])
+                    )
                 )
                 .scalars()
                 .all()
             )
             reconciled_count = 0
+            now = datetime.now(timezone.utc)
             for stuck_job in stuck_jobs:
                 if str(stuck_job.id) in in_flight_ids or self._is_job_active(str(stuck_job.id)):
                     logger.info(f"Database job {stuck_job.id} is in-flight or actively leased; skipping recovery")
                     continue
 
+                # If job is QUEUED, only recover if it has been waiting unpicked for > 5 minutes
+                if stuck_job.status == "QUEUED":
+                    created = stuck_job.created_at
+                    if not created or (now - created).total_seconds() < 300:
+                        continue
+
                 logger.warning(f"Marking stuck database job {stuck_job.id} as FAILED (was in status {stuck_job.status})")
                 stuck_job.status = "FAILED"
                 stuck_job.failure_code = "INTERNAL_ERROR"
-                stuck_job.error_message = "Worker terminated unexpectedly during processing"
-                stuck_job.completed_at = datetime.now(timezone.utc)
+                stuck_job.error_message = f"Worker timed out or terminated unexpectedly during {stuck_job.status}"
+                stuck_job.completed_at = now
                 if stuck_job.repository_version:
                     stuck_job.repository_version.index_status = "FAILED"
                 reconciled_count += 1

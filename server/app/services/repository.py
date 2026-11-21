@@ -165,7 +165,23 @@ class RepositoryService:
             # 1. Check for active job
             active_job = self.repository_repo.get_active_job(repository.id)
             if active_job:
-                raise RepositoryActiveJobError("Repository analysis is already in progress.")
+                from datetime import datetime, timezone, timedelta
+                now = datetime.now(timezone.utc)
+                job_time = active_job.started_at or active_job.created_at
+                # Reclaim abandoned/stuck jobs exceeding 15 minutes
+                if job_time and (now - job_time) > timedelta(minutes=15):
+                    logger.warning(
+                        f"Active job {active_job.id} for repository {repository.id} exceeded 15m timeout; marking FAILED"
+                    )
+                    active_job.status = "FAILED"
+                    active_job.failure_code = "INTERNAL_ERROR"
+                    active_job.error_message = "Indexing job timed out after 15 minutes"
+                    active_job.completed_at = now
+                    if active_job.repository_version:
+                        active_job.repository_version.index_status = "FAILED"
+                    self.db.commit()
+                else:
+                    raise RepositoryActiveJobError("Repository analysis is already in progress.")
 
             # 2. Find or create RepositoryVersion
             version = self.repository_repo.get_version_by_commit(repository.id, commit_sha)

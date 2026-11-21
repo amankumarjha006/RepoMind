@@ -91,6 +91,8 @@ export interface RepositoryDetailOut {
   lines_of_code?: number;
   ast_nodes?: number;
   primary_language?: string;
+  latest_job_status?: string | null;
+  latest_job_failure_code?: string | null;
 }
 
 export interface AnalyzeRepositoryOut {

@@ -12,7 +12,7 @@ import { classifyPath } from '../lib/classifyPath';
 import { getRepositoryStatusCategory } from '../lib/repositoryTableUtils';
 import { setLastOpenedRepoId } from '../lib/repositoryTableUtils';
 import { useAuth } from '../lib/AuthContext';
-import { useIndexingStatus } from '../lib/useIndexingStatus';
+import { useIndexingStatus, INDEXING_QUERY_KEY } from '../lib/useIndexingStatus';
 
 export function RepositoryOverviewPage() {
   const { id } = useParams<{ id: string }>();
@@ -65,12 +65,15 @@ export function RepositoryOverviewPage() {
     return fileData.total ?? fileData.files?.length ?? 0;
   }, [fileData]);
 
-  // ── Live status from shared indexing hook ──
+  // ── Live status from shared indexing hook or direct detail endpoint ──
   const currentRepoStatus = React.useMemo(() => {
     return repositories.find((r) => r.id === id);
   }, [repositories, id]);
 
-  const rawStatus = currentRepoStatus?.latest_job_status || repo?.active_version?.status;
+  const rawStatus =
+    repo?.latest_job_status ||
+    currentRepoStatus?.latest_job_status ||
+    repo?.active_version?.status;
   const isCurrentlyIndexing =
     rawStatus === 'QUEUED' ||
     rawStatus === 'FETCHING' ||
@@ -128,10 +131,12 @@ export function RepositoryOverviewPage() {
     const interval = setInterval(() => {
       queryClient.invalidateQueries({ queryKey: queryKeys.repoDetail(id) });
       queryClient.invalidateQueries({ queryKey: queryKeys.repoFiles(id) });
+      queryClient.invalidateQueries({ queryKey: INDEXING_QUERY_KEY });
+      refetchIndexing();
     }, 4000);
 
     return () => clearInterval(interval);
-  }, [id, isCurrentlyIndexing, queryClient]);
+  }, [id, isCurrentlyIndexing, queryClient, refetchIndexing]);
 
   const handleReindex = async () => {
     if (!id) return;
@@ -209,8 +214,8 @@ export function RepositoryOverviewPage() {
     name: repo.name,
     is_private: repo.is_private,
     created_at: '',
-    latest_job_status: activeVersion?.status || null,
-    latest_job_failure_code: null,
+    latest_job_status: repo.latest_job_status || currentRepoStatus?.latest_job_status || activeVersion?.status || null,
+    latest_job_failure_code: repo.latest_job_failure_code || currentRepoStatus?.latest_job_failure_code || null,
     active_version_short_sha: activeVersion?.commit_sha || null,
     last_indexed_at: activeVersion?.indexed_at || null,
   });
@@ -379,13 +384,20 @@ export function RepositoryOverviewPage() {
                       ? 'indexing'
                       : statusCategory === 'FAILED'
                       ? 'failed'
-                      : statusCategory === 'NOT_INDEXED'
+                      : statusCategory === 'NOT_INDEXED' || statusCategory === 'OTHER'
                       ? 'not_indexed'
                       : 'ready'
                   }
+                  showText={false}
                 />
                 <span className="capitalize">
-                  {statusCategory === 'NOT_INDEXED' ? 'Not indexed' : statusCategory.toLowerCase()}
+                  {statusCategory === 'NOT_INDEXED' || statusCategory === 'OTHER'
+                    ? 'Not indexed'
+                    : statusCategory === 'INDEXING'
+                    ? 'Indexing'
+                    : statusCategory === 'FAILED'
+                    ? 'Failed'
+                    : 'Ready'}
                 </span>
               </div>
             </div>
