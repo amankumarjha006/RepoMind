@@ -479,8 +479,6 @@ export const realApi = {
   // --- Page Component Compatibility Adapters ---
 
   getRepository: async (id: string, options: RequestInit = {}): Promise<Repository> => {
-    const cached = repositoryCache.get(id);
-
     const fetchFresh = async (): Promise<Repository> => {
       const detail = await realApi.getRepositoryDetail(id, options);
       const shortSha = detail.active_version?.commit_sha ? detail.active_version.commit_sha.slice(0, 7) : null;
@@ -545,12 +543,6 @@ export const realApi = {
       repositoryCache.set(id, result);
       return result;
     };
-
-    if (cached && !options.signal) {
-      // Instant tab switch: return cached repository immediately, refresh in background
-      fetchFresh().catch(() => {});
-      return cached;
-    }
 
     return fetchFresh();
   },
@@ -770,7 +762,28 @@ export const realApi = {
       });
 
       if (!response.ok) {
-        throw new ApiError(`Stream failed with status ${response.status}`, 'STREAM_ERROR', response.status);
+        let errMsg = `Stream failed with status ${response.status}`;
+        let errCode =
+          response.status === 409
+            ? 'CONVERSATION_GENERATION_IN_PROGRESS'
+            : response.status === 429
+            ? 'RATE_LIMITED'
+            : 'STREAM_ERROR';
+        const retryAfter = parseRetryAfter(response.headers.get('Retry-After'));
+        try {
+          const errData = await response.json();
+          if (errData?.error?.message) errMsg = errData.error.message;
+          if (errData?.error?.code) errCode = errData.error.code;
+        } catch {
+          // ignore non-json error responses
+        }
+        const apiError = new ApiError(errMsg, errCode, response.status, retryAfter);
+        callbacks.onError?.({
+          error_type: errCode,
+          message: errMsg,
+          retry_after: retryAfter,
+        });
+        throw apiError;
       }
 
       const reader = response.body?.getReader();
@@ -858,10 +871,14 @@ export const realApi = {
         created_at: new Date().toISOString(),
       });
     } catch (err: unknown) {
+      if (err instanceof ApiError) {
+        throw err;
+      }
       callbacks.onError?.({
         error_type: 'NETWORK_ERROR',
         message: err instanceof Error ? err.message : String(err),
       });
+      throw err;
     }
   },
 };

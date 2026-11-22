@@ -6,7 +6,7 @@ import { StatusDot } from '../components/ui/StatusDot';
 import { Button } from '../components/ui/button';
 import { AnimatedPage } from '../components/ui/AnimatedPage';
 import { RepositoryHeader } from '../components/repository/RepositoryHeader';
-import { realApi, queryKeys, type RepositoryDetailOut, type FileOut } from '../lib/api';
+import { realApi, queryKeys } from '../lib/api';
 import { formatNumber, formatRelativeTime, shortSha } from '../lib/utils';
 import { classifyPath } from '../lib/classifyPath';
 import { getRepositoryStatusCategory } from '../lib/repositoryTableUtils';

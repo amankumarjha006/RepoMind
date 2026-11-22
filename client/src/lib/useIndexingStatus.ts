@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { realApi, type RepositoryListItemOut } from './api';
+import { realApi, type RepositoryListItemOut, type RepositoryListOut } from './api';
 
 /**
  * Shared query key — identical to useRepositoryPolling so both hooks
@@ -39,7 +39,7 @@ export function useIndexingStatus() {
       const data = queryState.state.data;
       const repos: RepositoryListItemOut[] = Array.isArray(data)
         ? data
-        : (data as any)?.items ?? [];
+        : (data as RepositoryListOut | null)?.items ?? [];
 
       const hasActiveJob = repos.some(
         (r) => r.latest_job_status && ACTIVE_JOB_STATUSES.has(r.latest_job_status)
@@ -53,7 +53,7 @@ export function useIndexingStatus() {
     },
     select: (data): RepositoryListItemOut[] => {
       if (Array.isArray(data)) return data;
-      return (data as any)?.items ?? [];
+      return (data as RepositoryListOut | null)?.items ?? [];
     },
   });
 

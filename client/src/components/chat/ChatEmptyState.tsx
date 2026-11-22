@@ -2,7 +2,6 @@ import { MaterialIcon } from '../ui/MaterialIcon';
 
 interface ChatEmptyStateProps {
   repositoryName?: string;
-  onSelectPrompt?: (prompt: string) => void;
 }
 
 export function ChatEmptyState({

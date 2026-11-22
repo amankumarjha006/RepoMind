@@ -9,9 +9,19 @@ import { TopBar } from './TopBar';
 import { BottomNav } from './BottomNav';
 import { CommandPalette } from './CommandPalette';
 import { ConnectDrawer } from '../repository/ConnectDrawer';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '../ui/dialog';
+import { Button } from '../ui/button';
+import { MaterialIcon } from '../ui/MaterialIcon';
 import { useAuth } from '../../lib/AuthContext';
 import { useIndexingStatus } from '../../lib/useIndexingStatus';
 import { useTheme } from '../../lib/ThemeContext';
+import { deriveUserDisplay } from '../../lib/user';
 
 export function AppLayout() {
   const location = useLocation();
@@ -22,6 +32,9 @@ export function AppLayout() {
 
   const [connectOpen, setConnectOpen] = React.useState(false);
   const [commandOpen, setCommandOpen] = React.useState(false);
+  const [accountOpen, setAccountOpen] = React.useState(false);
+  const { logout } = useAuth();
+  const userDisplay = deriveUserDisplay(user);
 
   const mainRef = React.useRef<HTMLElement>(null);
 
@@ -77,7 +90,7 @@ export function AppLayout() {
           {/* Mobile Bottom Navigation */}
           <BottomNav
             onOpenCommand={() => setCommandOpen(true)}
-            onOpenUserMenu={() => setCommandOpen(true)}
+            onOpenUserMenu={() => setAccountOpen(true)}
           />
         </div>
 
@@ -97,6 +110,55 @@ export function AppLayout() {
           onOpenChange={setConnectOpen}
           onConnected={handleConnected}
         />
+
+        {/* Mobile Account Dialog */}
+        <Dialog open={accountOpen} onOpenChange={setAccountOpen}>
+          <DialogContent className="max-w-xs sm:max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Account</DialogTitle>
+              <DialogDescription>Signed in user details and session management.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 pt-2">
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-[var(--color-raised)] border border-[var(--color-border)]">
+                <div className="h-10 w-10 rounded-full bg-[var(--color-surface)] border border-[var(--color-border)] flex items-center justify-center font-mono text-sm font-semibold text-[var(--color-text)]">
+                  {userDisplay.initials}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-[var(--color-text)] truncate">{userDisplay.name}</p>
+                  <p className="text-xs text-[var(--color-text-secondary)] font-mono truncate">{userDisplay.email}</p>
+                  {user?.github?.username && (
+                    <p className="text-xs text-[var(--color-accent)] font-mono truncate">@{user.github.username}</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setAccountOpen(false);
+                    navigate('/repositories');
+                  }}
+                  className="w-full justify-start gap-2 text-xs"
+                >
+                  <MaterialIcon name="folder" size={16} />
+                  <span>Repositories</span>
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setAccountOpen(false);
+                    logout();
+                  }}
+                  className="w-full justify-start gap-2 text-xs text-[var(--color-error)] hover:bg-[var(--color-error-tint)] hover:text-[var(--color-error)]"
+                >
+                  <MaterialIcon name="logout" size={16} className="text-[var(--color-error)]" />
+                  <span>Sign out</span>
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* Crisp Toasts */}
         <Toaster

@@ -1,10 +1,11 @@
 import * as React from 'react';
 import { useParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { MaterialIcon } from '../components/ui/MaterialIcon';
 import { RepositoryHeader } from '../components/repository/RepositoryHeader';
 import { AnimatedPage } from '../components/ui/AnimatedPage';
-import { api, getCachedRepository, ApiError } from '../lib/api';
+import { api, getCachedRepository, queryKeys, ApiError } from '../lib/api';
+import { INDEXING_QUERY_KEY } from '../lib/useIndexingStatus';
 import { mapErrorToCopy } from '../lib/errors';
 import type { Repository } from '../lib/types';
 import type { ArchitectureOut, ComponentOut } from '../lib/architecture/types';
@@ -22,6 +23,7 @@ const architectureCache = new Map<string, ArchitectureOut>();
 
 export function ArchitecturePage() {
   const { id: repoId } = useParams<{ id: string }>();
+  const queryClient = useQueryClient();
 
   const { data: repository = null } = useQuery<Repository | null>({
     queryKey: ['repository', repoId],
@@ -32,8 +34,13 @@ export function ArchitecturePage() {
 
   const handleReindex = React.useCallback(async () => {
     if (!repoId) return;
+    architectureCache.clear();
     await api.reindexRepository(repoId);
-  }, [repoId]);
+    queryClient.invalidateQueries({ queryKey: ['repository', repoId] });
+    queryClient.invalidateQueries({ queryKey: queryKeys.repoDetail(repoId) });
+    queryClient.invalidateQueries({ queryKey: queryKeys.repoArchitecture(repoId) });
+    queryClient.invalidateQueries({ queryKey: INDEXING_QUERY_KEY });
+  }, [repoId, queryClient]);
 
   // Default to 'list' on mobile viewports (< 768px), otherwise 'modules'
   const [activeTab, setActiveTab] = React.useState<TabKey>(() => {

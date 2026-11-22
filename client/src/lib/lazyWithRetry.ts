@@ -4,6 +4,7 @@ import { lazy, ComponentType } from 'react';
  * Wraps dynamic React.lazy imports with a single-shot auto-reload retry.
  * Handles Vite dev-server restarts and stale production chunk hashes seamlessly.
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function lazyWithRetry<T extends ComponentType<any>>(
   factory: () => Promise<{ default: T }>
 ) {

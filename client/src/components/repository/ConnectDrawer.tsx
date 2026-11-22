@@ -190,7 +190,7 @@ export function ConnectDrawer({ open, onOpenChange, onConnected }: ConnectDrawer
 
       poll();
     },
-    [clearPollTimer, onConnected]
+    [clearPollTimer, onConnected, queryClient]
   );
 
   const handleStartIndexing = async () => {

@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { MaterialIcon } from '../ui/MaterialIcon';
 import { Button } from '../ui/button';
+import { useTheme } from '../../lib/ThemeContext';
 
 interface CodeBlockProps {
   code: string;
@@ -8,6 +9,7 @@ interface CodeBlockProps {
 }
 
 export function CodeBlock({ code, language = 'text' }: CodeBlockProps) {
+  const { theme } = useTheme();
   const [copied, setCopied] = React.useState(false);
   const [highlightedHtml, setHighlightedHtml] = React.useState<string | null>(null);
 
@@ -22,7 +24,7 @@ export function CodeBlock({ code, language = 'text' }: CodeBlockProps) {
         try {
           const html = await shiki.codeToHtml(code, {
             lang: cleanLang || 'text',
-            theme: 'github-dark',
+            theme: theme === 'light' ? 'github-light' : 'github-dark',
           });
           if (!cancelled) {
             setHighlightedHtml(html);
@@ -42,7 +44,7 @@ export function CodeBlock({ code, language = 'text' }: CodeBlockProps) {
     return () => {
       cancelled = true;
     };
-  }, [code, cleanLang]);
+  }, [code, cleanLang, theme]);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(code);

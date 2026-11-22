@@ -67,19 +67,19 @@ export function CommandPalette({ open, onOpenChange, onOpenConnect }: CommandPal
               <CommandShortcut>1</CommandShortcut>
             </CommandItem>
             <CommandItem
-              onSelect={() => handleSelect(() => navigate(`/repositories/${currentRepoId}/chat`))}
-              className="cursor-pointer"
-            >
-              <MaterialIcon name="chat" size={16} className="mr-2" />
-              <span>Cited Q&A Chat</span>
-              <CommandShortcut>2</CommandShortcut>
-            </CommandItem>
-            <CommandItem
               onSelect={() => handleSelect(() => navigate(`/repositories/${currentRepoId}/architecture`))}
               className="cursor-pointer"
             >
               <MaterialIcon name="account_tree" size={16} className="mr-2" />
               <span>Architecture Map</span>
+              <CommandShortcut>2</CommandShortcut>
+            </CommandItem>
+            <CommandItem
+              onSelect={() => handleSelect(() => navigate(`/repositories/${currentRepoId}/chat`))}
+              className="cursor-pointer"
+            >
+              <MaterialIcon name="chat" size={16} className="mr-2" />
+              <span>Cited Q&A Chat</span>
               <CommandShortcut>3</CommandShortcut>
             </CommandItem>
             <CommandItem

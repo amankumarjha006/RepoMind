@@ -54,7 +54,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const markSessionExpired = React.useCallback(() => {
     setUser(null);
-    navigate('/', { replace: true });
+    navigate('/status/session-expired', { replace: true });
   }, [navigate]);
 
   React.useEffect(() => {

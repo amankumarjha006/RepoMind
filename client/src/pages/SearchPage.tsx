@@ -1,8 +1,9 @@
 import * as React from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { MaterialIcon } from '../components/ui/MaterialIcon';
 import { realApi, queryKeys, type SearchResultItem } from '../lib/api';
+import { INDEXING_QUERY_KEY } from '../lib/useIndexingStatus';
 import { RepositoryHeader } from '../components/repository/RepositoryHeader';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -13,6 +14,14 @@ import { SearchCodePreview } from '../components/search/SearchCodePreview';
 export function SearchPage() {
   const { id: repoId } = useParams<{ id: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
+  const queryClient = useQueryClient();
+
+  const handleReindex = React.useCallback(async () => {
+    if (!repoId) return;
+    await realApi.analyzeRepository(repoId);
+    queryClient.invalidateQueries({ queryKey: queryKeys.repoDetail(repoId) });
+    queryClient.invalidateQueries({ queryKey: INDEXING_QUERY_KEY });
+  }, [repoId, queryClient]);
 
   const urlQuery = searchParams.get('q') || '';
   const { data: repository = null } = useQuery({
@@ -148,7 +157,7 @@ export function SearchPage() {
   return (
     <AnimatedPage className="flex flex-col min-h-screen bg-surface-base text-text-primary font-sans">
       <LiveRegion message={a11yStatus} />
-      <RepositoryHeader repository={repository} />
+      <RepositoryHeader repository={repository} onReindex={handleReindex} />
 
       <main id="main-content" className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 md:px-8 py-8 sm:py-10 pb-16 flex flex-col space-y-6">
         {/* Search header & input bar */}

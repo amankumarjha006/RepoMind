@@ -11,8 +11,9 @@ import { ChatMessageItem } from '../components/chat/ChatMessageItem';
 import { ChatComposer } from '../components/chat/ChatComposer';
 import { ChatEmptyState } from '../components/chat/ChatEmptyState';
 import { SourcePanel } from '../components/chat/SourcePanel';
-import { realApi, api, ApiError, queryKeys, type RepositoryDetailOut } from '../lib/api';
+import { realApi, api, ApiError, queryKeys } from '../lib/api';
 import { Conversation, ChatMessage, Citation } from '../lib/types';
+import { INDEXING_QUERY_KEY } from '../lib/useIndexingStatus';
 import { toast } from '../components/ui/sonner';
 
 export function ChatPage() {
@@ -39,9 +40,9 @@ export function ChatPage() {
         repository_id: repoId!,
         title: c.title || 'Untitled conversation',
         created_at: c.created_at,
-        updated_at: c.created_at,
+        updated_at: c.last_message_at || c.created_at,
         pinned_sha: '',
-        message_count: 0,
+        message_count: c.message_count ?? 0,
       }));
     },
     enabled: Boolean(repoId),
@@ -178,6 +179,7 @@ export function ChatPage() {
       setErrorInfo(null);
       setStreamedText('');
       setStreamedCitations([]);
+      queryClient.invalidateQueries({ queryKey: queryKeys.repoConversations(repoId) });
       navigate(`/repositories/${repoId}/chat/${convItem.id}`);
       setMobileSidebarOpen(false);
     } catch {
@@ -190,6 +192,7 @@ export function ChatPage() {
       await realApi.deleteConversation(id);
       const remaining = conversations.filter((c) => c.id !== id);
       setConversations(remaining);
+      queryClient.invalidateQueries({ queryKey: queryKeys.repoConversations(repoId!) });
 
       if (activeConvId === id) {
         if (remaining.length > 0 && remaining[0]) {
@@ -206,6 +209,61 @@ export function ChatPage() {
       toast.error('Failed to delete conversation');
     }
   };
+
+  const startLockPolling = React.useCallback(
+    (targetConvId: string) => {
+      setIsLockedPolling(true);
+      setErrorInfo({
+        code: '409_LOCKED',
+        message: 'Another response is currently in progress for this conversation. Polling for completion...',
+      });
+
+      let pollDelay = 3000;
+      const maxPollTime = 180000; // 180s lock TTL
+      const startTime = Date.now();
+
+      const pollInterval = setInterval(async () => {
+        if (Date.now() - startTime > maxPollTime) {
+          clearInterval(pollInterval);
+          setIsLockedPolling(false);
+          setErrorInfo({
+            code: 'LOCK_TIMEOUT',
+            message: 'Timed out waiting for in-flight response to complete.',
+          });
+          return;
+        }
+
+        try {
+          const listRes = await realApi.listMessages(targetConvId, 1, 100);
+          const latestMsg = listRes.items?.[listRes.items.length - 1];
+          if (latestMsg && latestMsg.role === 'assistant') {
+            clearInterval(pollInterval);
+            setIsLockedPolling(false);
+            setErrorInfo(null);
+            const mapped: ChatMessage[] = (listRes.items || []).map((m) => ({
+              id: m.id,
+              conversation_id: m.conversation_id,
+              role: m.role as 'user' | 'assistant',
+              content: m.content,
+              citations: (m.citations || []).map((c) => ({
+                path: c.file_path,
+                start_line: c.start_line || 0,
+                end_line: c.end_line || 0,
+                language: c.file_path.split('.').pop() || 'text',
+              })),
+              created_at: m.created_at,
+            }));
+            setMessages(mapped);
+            scrollToBottom();
+          }
+        } catch {
+          // Keep polling
+        }
+        pollDelay = Math.min(pollDelay * 1.5, 15000);
+      }, pollDelay);
+    },
+    [scrollToBottom]
+  );
 
   const handleSendMessage = async (textToSend?: string) => {
     const text = (textToSend || inputText).trim();
@@ -228,6 +286,7 @@ export function ChatPage() {
         };
         setConversations((prev) => [convItem, ...prev]);
         setActiveConvId(convId);
+        queryClient.invalidateQueries({ queryKey: queryKeys.repoConversations(repoId) });
         navigate(`/repositories/${repoId}/chat/${convId}`, { replace: true });
       } catch {
         setErrorInfo({ message: 'Failed to initialize conversation thread.' });
@@ -267,6 +326,11 @@ export function ChatPage() {
           isStreamingRef.current = false;
           setStreaming(false);
 
+          if (err.error_type === 'CONVERSATION_GENERATION_IN_PROGRESS') {
+            startLockPolling(convId);
+            return;
+          }
+
           if (err.retry_after) {
             setRateLimitCountdown(err.retry_after);
           }
@@ -290,59 +354,8 @@ export function ChatPage() {
       isStreamingRef.current = false;
       setStreaming(false);
 
-      if (err instanceof ApiError && err.status === 409) {
-        // Handle in-flight lock (409 Conflict): poll GET messages with backoff
-        setIsLockedPolling(true);
-        setErrorInfo({
-          code: '409_LOCKED',
-          message: 'Another response is currently in progress for this conversation. Polling for completion...',
-        });
-
-        const targetConvId = convId;
-        let pollDelay = 3000;
-        const maxPollTime = 180000; // 180s lock TTL
-        const startTime = Date.now();
-
-        const pollInterval = setInterval(async () => {
-          if (Date.now() - startTime > maxPollTime) {
-            clearInterval(pollInterval);
-            setIsLockedPolling(false);
-            setErrorInfo({
-              code: 'LOCK_TIMEOUT',
-              message: 'Timed out waiting for in-flight response to complete.',
-            });
-            return;
-          }
-
-          try {
-            const listRes = await realApi.listMessages(targetConvId, 1, 100);
-            const latestMsg = listRes.items?.[listRes.items.length - 1];
-            if (latestMsg && latestMsg.role === 'assistant') {
-              clearInterval(pollInterval);
-              setIsLockedPolling(false);
-              setErrorInfo(null);
-              // Reload all messages
-              const mapped: ChatMessage[] = (listRes.items || []).map((m) => ({
-                id: m.id,
-                conversation_id: m.conversation_id,
-                role: m.role as 'user' | 'assistant',
-                content: m.content,
-                citations: (m.citations || []).map((c) => ({
-                  path: c.file_path,
-                  start_line: c.start_line || 0,
-                  end_line: c.end_line || 0,
-                  language: c.file_path.split('.').pop() || 'text',
-                })),
-                created_at: m.created_at,
-              }));
-              setMessages(mapped);
-              scrollToBottom();
-            }
-          } catch {
-            // Keep polling
-          }
-          pollDelay = Math.min(pollDelay * 1.5, 15000);
-        }, pollDelay);
+      if (err instanceof ApiError && (err.status === 409 || err.code === 'CONVERSATION_GENERATION_IN_PROGRESS')) {
+        startLockPolling(convId);
       } else if (err instanceof ApiError && err.status === 429) {
         const retryAfter = err.retryAfter || 30;
         setRateLimitCountdown(retryAfter);
@@ -413,10 +426,17 @@ export function ChatPage() {
     setMobileSidebarOpen(false);
   };
 
+  const handleReindex = React.useCallback(async () => {
+    if (!repoId) return;
+    await realApi.analyzeRepository(repoId);
+    queryClient.invalidateQueries({ queryKey: queryKeys.repoDetail(repoId) });
+    queryClient.invalidateQueries({ queryKey: INDEXING_QUERY_KEY });
+  }, [repoId, queryClient]);
+
   return (
     <AnimatedPage className="flex flex-col flex-1 h-full min-h-0 overflow-hidden bg-surface-base">
       {/* 5-tab Sticky Header */}
-      {repo && <RepositoryHeader repository={repo} onReindex={async () => {}} />}
+      {repo && <RepositoryHeader repository={repo} onReindex={handleReindex} />}
 
       {/* Main Resizable Chat Area */}
       <div className="flex-1 min-h-0 overflow-hidden">

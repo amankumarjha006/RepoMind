@@ -136,7 +136,7 @@ export function ConversationSidebar({
 
                 <div className="relative flex items-center justify-end shrink-0 ml-1.5 min-w-[44px]" onClick={(e) => e.stopPropagation()}>
                   <span className="text-[10px] text-text-tertiary tabular-nums font-mono opacity-100 group-hover:opacity-0 transition-opacity duration-150">
-                    {formatRelativeTime(c.created_at)}
+                    {formatRelativeTime(c.updated_at || c.created_at)}
                   </span>
                   <div className="absolute right-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex items-center">
                     <DropdownMenu>

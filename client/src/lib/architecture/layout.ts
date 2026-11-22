@@ -109,8 +109,8 @@ export async function layoutArchitectureGraph(
 
   try {
     const elk = getElkInstance();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     layoutResult = await Promise.race([
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       elk.layout(elkGraph as any),
       new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error('ELK layout timeout after 4000ms')), 4000)

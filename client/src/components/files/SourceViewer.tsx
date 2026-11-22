@@ -3,6 +3,7 @@ import { MaterialIcon } from '../ui/MaterialIcon';
 import { Button } from '../ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
 import { toast } from '../ui/sonner';
+import { useTheme } from '../../lib/ThemeContext';
 
 interface Token {
   content: string;
@@ -27,6 +28,7 @@ export function SourceViewer({
   targetEndLine,
   onClearTarget,
 }: SourceViewerProps) {
+  const { theme } = useTheme();
   const [tokens, setTokens] = React.useState<Token[][] | null>(null);
   const [copiedLine, setCopiedLine] = React.useState<number | null>(null);
   const targetLineRef = React.useRef<HTMLTableRowElement>(null);
@@ -55,7 +57,7 @@ export function SourceViewer({
         try {
           const res = await shiki.codeToTokens(code, {
             lang: cleanLang as Parameters<typeof shiki.codeToTokens>[1]['lang'],
-            theme: 'github-dark',
+            theme: theme === 'light' ? 'github-light' : 'github-dark',
           });
           if (!cancelled && res.tokens) {
             setTokens(res.tokens);
@@ -76,7 +78,7 @@ export function SourceViewer({
     return () => {
       cancelled = true;
     };
-  }, [code, cleanLang]);
+  }, [code, cleanLang, theme]);
 
   // Smooth scroll to targeted line when loaded or target line changes
   React.useEffect(() => {

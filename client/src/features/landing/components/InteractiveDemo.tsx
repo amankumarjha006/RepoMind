@@ -40,12 +40,20 @@ export const InteractiveDemo: React.FC = () => {
   const [isStreaming, setIsStreaming] = React.useState<boolean>(false);
   const [isPaused, setIsPaused] = React.useState<boolean>(false);
   const [selectedCitation, setSelectedCitation] = React.useState<Citation | null>(null);
+  const activeTimersRef = React.useRef<Array<ReturnType<typeof setInterval> | ReturnType<typeof setTimeout>>>([]);
+
+  const clearAllTimers = React.useCallback(() => {
+    activeTimersRef.current.forEach((t) => clearInterval(t));
+    activeTimersRef.current = [];
+  }, []);
 
   const activeItem = items[activeIndex] || items[0];
 
   // Reset or run stream when active item changes or container comes in view
   const runSequence = React.useCallback(
     (item: DemoItem) => {
+      clearAllTimers();
+
       if (shouldReduceMotion) {
         setTypedQuery(item.query);
         setStreamedText(item.answer);
@@ -72,7 +80,7 @@ export const InteractiveDemo: React.FC = () => {
           setIsTyping(false);
 
           // 2. Stream answer
-          setTimeout(() => {
+          const timeoutId = setTimeout(() => {
             setIsStreaming(true);
             const tokens = item.answer.split(' ');
             let tokenIdx = 0;
@@ -91,20 +99,26 @@ export const InteractiveDemo: React.FC = () => {
                 setStreamedText(tokens.slice(0, tokenIdx).join(' '));
               }
             }, 30);
+            activeTimersRef.current.push(streamInterval);
           }, 250);
+          activeTimersRef.current.push(timeoutId);
         } else {
           setTypedQuery(item.query.slice(0, queryIdx));
         }
       }, 25);
+      activeTimersRef.current.push(queryInterval);
     },
-    [shouldReduceMotion, isPaused]
+    [shouldReduceMotion, isPaused, clearAllTimers]
   );
 
   React.useEffect(() => {
     if (isInView) {
       runSequence(activeItem);
     }
-  }, [isInView, activeIndex, runSequence, activeItem]);
+    return () => {
+      clearAllTimers();
+    };
+  }, [isInView, activeIndex, runSequence, activeItem, clearAllTimers]);
 
   return (
     <section

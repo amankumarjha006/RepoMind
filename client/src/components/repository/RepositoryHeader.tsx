@@ -97,6 +97,7 @@ export function RepositoryHeader({
   };
 
   const handleReindexClick = async () => {
+    if (!onReindex && !onRefresh) return;
     setIsReindexing(true);
     try {
       if (onReindex) {
