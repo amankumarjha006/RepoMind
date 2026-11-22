@@ -1,5 +1,7 @@
 # Codebase Intelligence - Frontend Client (RepoMind)
 
+**Live Demo:** [https://repomind-rouge.vercel.app](https://repomind-rouge.vercel.app)
+
 The frontend client is a single-page application built with **React 19**, **Vite**, **TypeScript**, **Tailwind CSS**, and **React Router v7**.
 
 ## Prerequisites
