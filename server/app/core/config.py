@@ -97,6 +97,7 @@ class Settings(BaseSettings):
     
     RATE_LIMIT_STREAM_REQUESTS: int = 10
     RATE_LIMIT_STREAM_WINDOW_SECONDS: int = 60
+    RATE_LIMIT_TRUST_FORWARDED_HEADERS: bool = False
 
     # Worker Configuration
     WORKER_BLOCKING_TIMEOUT_SECONDS: int = 20

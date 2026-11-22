@@ -309,6 +309,8 @@ async def test_get_repository_detail_success(async_client, mock_auth, mock_db, m
     mock_repo_repo_instance = mock_repo_repo.return_value
     version = RepositoryVersion(id=uuid4(), repository_id=UUID(repo_id), commit_sha="abc", index_status="SUCCESS", branch="main")
     mock_repo_repo_instance.get_latest_version.return_value = version
+    mock_repo_repo_instance.get_active_job.return_value = None
+    mock_repo_repo_instance.get_latest_job.return_value = None
     
     response = await async_client.get(f"{settings.API_V1_STR}/repositories/{repo_id}")
     assert response.status_code == 200
@@ -344,6 +346,8 @@ async def test_get_repository_detail_no_version(async_client, mock_auth, mock_db
     mock_repo_repo = mocker.patch("app.api.v1.endpoints.repositories.RepositoryRepository")
     mock_repo_repo_instance = mock_repo_repo.return_value
     mock_repo_repo_instance.get_latest_version.return_value = None
+    mock_repo_repo_instance.get_active_job.return_value = None
+    mock_repo_repo_instance.get_latest_job.return_value = None
     
     response = await async_client.get(f"{settings.API_V1_STR}/repositories/{repo_id}")
     assert response.status_code == 200

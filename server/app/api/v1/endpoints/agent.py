@@ -6,6 +6,7 @@ from app.api.deps import get_db, get_current_user, NotFoundException
 from app.core.rate_limit import general_rate_limiter
 from app.models.user import User
 from app.models.agent import AgentRun, AgentCheckpoint
+from app.repositories.conversation import ConversationRepository
 from app.repositories.repository import RepositoryRepository
 from app.schemas.agent import (
     AgentRunCreate,
@@ -62,6 +63,14 @@ def create_agent_run(
     user: User = Depends(get_current_user),
 ):
     _authorize_version(db, user, payload.repository_version_id)
+    if payload.conversation_id:
+        conv_repo = ConversationRepository(db)
+        conv = conv_repo.get_for_user(payload.conversation_id, user.id)
+        if not conv:
+            raise NotFoundException(
+                code="CONVERSATION_NOT_FOUND",
+                message="The requested conversation was not found or you do not have permission to access it.",
+            )
     execution_service = AgentExecutionService(db)
     run = execution_service.start_run(
         repository_version_id=payload.repository_version_id,

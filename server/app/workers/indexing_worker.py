@@ -271,10 +271,11 @@ class IndexingWorker:
                     if not created or (now - created).total_seconds() < 300:
                         continue
 
-                logger.warning(f"Marking stuck database job {stuck_job.id} as FAILED (was in status {stuck_job.status})")
+                prior_status = stuck_job.status
+                logger.warning(f"Marking stuck database job {stuck_job.id} as FAILED (was in status {prior_status})")
                 stuck_job.status = "FAILED"
                 stuck_job.failure_code = "INTERNAL_ERROR"
-                stuck_job.error_message = f"Worker timed out or terminated unexpectedly during {stuck_job.status}"
+                stuck_job.error_message = f"Worker terminated unexpectedly during {prior_status}"
                 stuck_job.completed_at = now
                 if stuck_job.repository_version:
                     stuck_job.repository_version.index_status = "FAILED"

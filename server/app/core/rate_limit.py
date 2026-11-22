@@ -58,7 +58,16 @@ class RateLimiter:
             identity = str(user.id)
             key = f"rate_limit:{self.category}:user:{identity}"
         else:
-            identity = request.client.host if request.client else "unknown"
+            if settings.RATE_LIMIT_TRUST_FORWARDED_HEADERS and hasattr(request, "headers") and request.headers:
+                forwarded = request.headers.get("cf-connecting-ip") or request.headers.get("x-forwarded-for")
+                if forwarded and isinstance(forwarded, str):
+                    identity = forwarded.split(",")[0].strip()
+                elif request.client:
+                    identity = request.client.host
+                else:
+                    identity = "unknown"
+            else:
+                identity = request.client.host if request.client else "unknown"
             key = f"rate_limit:{self.category}:ip:{identity}"
         
         try:

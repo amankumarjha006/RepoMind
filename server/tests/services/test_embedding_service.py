@@ -1,5 +1,6 @@
 import pytest
 import time
+import httpx
 import requests
 from unittest.mock import patch, MagicMock
 
@@ -148,6 +149,17 @@ def test_gemini_error_classification():
     with pytest.raises(EmbeddingProviderConnectionError):
         with patch.object(provider, 'client') as mock_client:
             mock_client.models.embed_content.side_effect = requests.exceptions.ConnectionError("conn error")
+            provider.embed(["test"])
+
+    # Test httpx TimeoutException and NetworkError
+    with pytest.raises(EmbeddingProviderTimeoutError):
+        with patch.object(provider, 'client') as mock_client:
+            mock_client.models.embed_content.side_effect = httpx.TimeoutException("httpx timeout")
+            provider.embed(["test"])
+
+    with pytest.raises(EmbeddingProviderConnectionError):
+        with patch.object(provider, 'client') as mock_client:
+            mock_client.models.embed_content.side_effect = httpx.NetworkError("httpx connection reset")
             provider.embed(["test"])
 
     # Test 429 APIError with Retry-After header on real requests.Response

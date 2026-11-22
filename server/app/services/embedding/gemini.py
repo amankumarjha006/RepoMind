@@ -1,6 +1,7 @@
 import logging
 import time
 from typing import List, Optional
+import httpx
 import requests
 from google import genai
 from app.services.embedding.provider import EmbeddingProvider
@@ -163,13 +164,15 @@ class GeminiEmbeddingProvider(EmbeddingProvider):
                 raise EmbeddingProviderServerError(str(e)) from e
             else:
                 raise EmbeddingProviderError(f"Gemini API Error: {str(e)}") from e
-        except requests.exceptions.Timeout as e:
+        except (requests.exceptions.Timeout, httpx.TimeoutException) as e:
             raise EmbeddingProviderTimeoutError(f"Connection timeout: {str(e)}") from e
-        except requests.exceptions.ConnectionError as e:
+        except (requests.exceptions.ConnectionError, httpx.NetworkError, httpx.RemoteProtocolError) as e:
             raise EmbeddingProviderConnectionError(f"Connection error: {str(e)}") from e
-        except requests.exceptions.SSLError as e:
-            raise EmbeddingProviderConnectionError(f"SSL error: {str(e)}") from e
+        except (requests.exceptions.SSLError, httpx.ProxyError) as e:
+            raise EmbeddingProviderConnectionError(f"SSL/Proxy error: {str(e)}") from e
         except requests.exceptions.RequestException as e:
             raise EmbeddingProviderError(f"Request failed: {str(e)}") from e
+        except httpx.HTTPError as e:
+            raise EmbeddingProviderError(f"HTTP request failed: {str(e)}") from e
         except Exception as e:
             raise EmbeddingProviderError(f"Unexpected error: {str(e)}") from e

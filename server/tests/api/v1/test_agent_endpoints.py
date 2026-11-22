@@ -143,6 +143,75 @@ async def test_create_agent_run_unauthorized_repository(client, auth_overrides, 
 
 
 @pytest.mark.asyncio
+async def test_create_agent_run_unauthorized_conversation(client, auth_overrides, version_id, repo_id, mock_version, mock_repo):
+    unauthorized_conv_id = uuid4()
+    with patch("app.api.v1.endpoints.agent.RepositoryRepository") as mock_repo_cls, \
+         patch("app.api.v1.endpoints.agent.ConversationRepository") as mock_conv_cls:
+        mock_repo_repo = MagicMock()
+        mock_repo_repo.get_version_by_id.return_value = mock_version
+        mock_repo_repo.get_for_user.return_value = mock_repo
+        mock_repo_cls.return_value = mock_repo_repo
+
+        mock_conv_repo = MagicMock()
+        mock_conv_repo.get_for_user.return_value = None
+        mock_conv_cls.return_value = mock_conv_repo
+
+        resp = await client.post(
+            "/api/v1/agent/runs",
+            json={
+                "repository_version_id": str(version_id),
+                "conversation_id": str(unauthorized_conv_id),
+                "task": "Run with someone else's conversation",
+            },
+        )
+
+        assert resp.status_code == 404
+        assert resp.json()["error"]["code"] == "CONVERSATION_NOT_FOUND"
+
+
+@pytest.mark.asyncio
+async def test_create_agent_run_authorized_conversation(client, auth_overrides, version_id, repo_id, mock_version, mock_repo):
+    conv_id = uuid4()
+    now = datetime.now(timezone.utc)
+    mock_run = AgentRun(
+        id=uuid4(),
+        repository_version_id=version_id,
+        conversation_id=conv_id,
+        task="Run with my conversation",
+        status="RUNNING",
+        created_at=now,
+        updated_at=now,
+    )
+    with patch("app.api.v1.endpoints.agent.RepositoryRepository") as mock_repo_cls, \
+         patch("app.api.v1.endpoints.agent.ConversationRepository") as mock_conv_cls, \
+         patch("app.api.v1.endpoints.agent.AgentExecutionService") as mock_exec_cls:
+        mock_repo_repo = MagicMock()
+        mock_repo_repo.get_version_by_id.return_value = mock_version
+        mock_repo_repo.get_for_user.return_value = mock_repo
+        mock_repo_cls.return_value = mock_repo_repo
+
+        mock_conv_repo = MagicMock()
+        mock_conv_repo.get_for_user.return_value = MagicMock(id=conv_id)
+        mock_conv_cls.return_value = mock_conv_repo
+
+        mock_exec_service = MagicMock()
+        mock_exec_service.start_run.return_value = mock_run
+        mock_exec_cls.return_value = mock_exec_service
+
+        resp = await client.post(
+            "/api/v1/agent/runs",
+            json={
+                "repository_version_id": str(version_id),
+                "conversation_id": str(conv_id),
+                "task": "Run with my conversation",
+            },
+        )
+
+        assert resp.status_code == 201
+        assert resp.json()["id"] == str(mock_run.id)
+
+
+@pytest.mark.asyncio
 async def test_get_agent_run_success(client, auth_overrides, version_id, mock_version, mock_repo):
     run_id = uuid4()
     now = datetime.now(timezone.utc)

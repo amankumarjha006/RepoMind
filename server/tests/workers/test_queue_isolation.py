@@ -4,6 +4,8 @@ from uuid import uuid4
 from app.core.config import settings
 from app.workers.indexing_worker import enqueue_indexing_job, QUEUE_NAME, PROCESSING_QUEUE_NAME
 
+pytestmark = pytest.mark.integration
+
 
 def test_test_redis_url_isolated_from_dev_db():
     """Verify that during tests, settings.REDIS_URL is isolated to test DB (DB 15), not DB 0."""

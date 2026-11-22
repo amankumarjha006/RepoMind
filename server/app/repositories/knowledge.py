@@ -214,7 +214,7 @@ class KnowledgeRepository:
         
         exact_match = combined_text.ilike(f"%{escaped_query}%", escape="\\")
         path_match = clean_path_expr.ilike(f"%{escaped_query}%", escape="\\")
-        fts_rank = func.ts_rank_cd(tsvector, tsquery)
+        fts_rank = func.coalesce(func.ts_rank_cd(tsvector, tsquery), 0.0)
         
         score = (case((exact_match, 1.0), else_=0.0) + case((path_match, 0.5), else_=0.0) + fts_rank).label("score")
         

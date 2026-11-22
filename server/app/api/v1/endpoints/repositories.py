@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime, timezone
 import redis.asyncio as redis
 
 logger = logging.getLogger(__name__)
@@ -206,7 +207,7 @@ async def connect_repository(
             }
         )
     except Exception as e:
-        logger.error(f"Unexpected error in analyze_repository: {e}", exc_info=True)
+        logger.error(f"Unexpected error in connect_repository: {e}", exc_info=True)
         return JSONResponse(
             status_code=500,
             content={
@@ -660,8 +661,9 @@ def get_component_files(
     prefix = target_comp.get("path_prefix", "")
     query = db.query(File).filter(File.repository_version_id == active_version.id)
     if prefix:
+        escaped_prefix = prefix.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
         query = query.filter(
-            (File.file_path == prefix) | File.file_path.startswith(prefix + "/")
+            (File.file_path == prefix) | File.file_path.like(f"{escaped_prefix}/%", escape="\\")
         )
     else:
         query = query.filter(~File.file_path.contains("/"))
@@ -757,9 +759,13 @@ async def analyze_repository(
             await enqueue_indexing_job_async(job.id, redis_client)
         except Exception as enqueue_err:
             logger.error("Failed to enqueue indexing job %s to Redis: %s", job.id, enqueue_err)
+            now = datetime.now(timezone.utc)
             job.status = "FAILED"
             job.failure_code = "INTERNAL_ERROR"
             job.error_message = f"Indexing queue unavailable: {enqueue_err}"
+            job.completed_at = now
+            if version:
+                version.index_status = "FAILED"
             db.commit()
             return JSONResponse(
                 status_code=503,
@@ -798,7 +804,7 @@ async def analyze_repository(
             }
         )
     except Exception as e:
-        logger.error(f"Unexpected error in analyze_repository: {e}", exc_info=True)
+        logger.error(f"Unexpected error in trigger_repository_indexing: {e}", exc_info=True)
         return JSONResponse(
             status_code=500,
             content={
@@ -895,7 +901,7 @@ async def query_repository(
             content={"error": {"code": "UPSTREAM_SERVICE_ERROR", "message": "AI service encountered an error processing the request."}}
         )
     except Exception as e:
-        logger.error(f"Unexpected error in analyze_repository: {e}", exc_info=True)
+        logger.error(f"Unexpected error in query_repository: {e}", exc_info=True)
         return JSONResponse(
             status_code=500,
             content={"error": {"code": "INTERNAL_SERVER_ERROR", "message": "An unexpected error occurred."}}

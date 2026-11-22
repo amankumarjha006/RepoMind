@@ -89,6 +89,18 @@ async def test_rate_limiter_ignores_spoofed_x_forwarded_for(mock_redis, mock_req
     assert args[2] == "rate_limit:test:ip:127.0.0.1"
 
 @pytest.mark.asyncio
+async def test_rate_limiter_honors_forwarded_header_when_configured(mock_redis, mock_request, mock_response, monkeypatch):
+    from app.core.config import settings
+    monkeypatch.setattr(settings, "RATE_LIMIT_TRUST_FORWARDED_HEADERS", True)
+    limiter = RateLimiter("test", limit=5, window=60)
+    mock_request.headers = {"x-forwarded-for": "203.0.113.195, 198.51.100.1"}
+
+    await limiter(request=mock_request, response=mock_response, redis_client=mock_redis, user=None)
+
+    args = mock_redis.eval.call_args[0]
+    assert args[2] == "rate_limit:test:ip:203.0.113.195"
+
+@pytest.mark.asyncio
 async def test_rate_limiter_infrastructure_failure(mock_redis, mock_request, mock_response, user):
     limiter = RateLimiter("test", limit=5, window=60)
     
