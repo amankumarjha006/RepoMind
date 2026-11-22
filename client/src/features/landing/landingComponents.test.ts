@@ -3,6 +3,7 @@ import proofData from './data/proof.json';
 import refusalData from './data/refusal.json';
 import archData from './data/architecture.json';
 import { PRIVACY_FACTS } from './data/privacy';
+import { HeroVisualAnimation } from './components/HeroVisualAnimation';
 
 describe('Landing Page Data Integrity Tests', () => {
   it('validates proofData numbers and invariants', () => {
@@ -60,6 +61,10 @@ describe('Landing Page Data Integrity Tests', () => {
       // Verifies no vague local claims
       expect(fact.detail.toLowerCase()).not.toContain('local laptop');
     });
+  });
+
+  it('verifies HeroVisualAnimation component is defined and callable', () => {
+    expect(typeof HeroVisualAnimation).toBe('function');
   });
 });
 
