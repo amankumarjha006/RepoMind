@@ -6,7 +6,14 @@ from uuid import uuid4
 
 from app.main import app
 from app.core.config import settings
-from app.api.deps import get_current_user, get_authorized_repository, get_db, get_redis
+from app.api.deps import (
+    get_current_user,
+    get_authorized_repository,
+    get_db,
+    get_redis,
+    get_rag_query_service,
+    get_retrieval_service,
+)
 from app.models.user import User, GithubAccount
 from app.models.repository import Repository
 from app.services.llm.exceptions import TransientLLMError, PermanentLLMError
@@ -99,8 +106,10 @@ async def test_repository_endpoint_no_secret_leak_on_permanent_llm_error(async_c
     app.dependency_overrides[get_current_user] = lambda: mock_user
     app.dependency_overrides[get_authorized_repository] = lambda: mock_repo
     
-    mock_execute = AsyncMock(side_effect=PermanentLLMError(f"OpenRouter auth failed: key={fake_secret}"))
-    mocker.patch("app.api.v1.endpoints.repositories.RAGQueryService.execute", mock_execute)
+    mock_rag_service = MagicMock()
+    mock_rag_service.execute = AsyncMock(side_effect=PermanentLLMError(f"OpenRouter auth failed: key={fake_secret}"))
+    app.dependency_overrides[get_rag_query_service] = lambda: mock_rag_service
+    app.dependency_overrides[get_retrieval_service] = lambda: MagicMock()
     
     # Mock redis for rate limiter
     mock_redis_client = AsyncMock()
@@ -138,8 +147,10 @@ async def test_repository_endpoint_no_secret_leak_on_transient_llm_error(async_c
     app.dependency_overrides[get_current_user] = lambda: mock_user
     app.dependency_overrides[get_authorized_repository] = lambda: mock_repo
     
-    mock_execute = AsyncMock(side_effect=TransientLLMError(f"Rate limited upstream: token={fake_secret}"))
-    mocker.patch("app.api.v1.endpoints.repositories.RAGQueryService.execute", mock_execute)
+    mock_rag_service = MagicMock()
+    mock_rag_service.execute = AsyncMock(side_effect=TransientLLMError(f"Rate limited upstream: token={fake_secret}"))
+    app.dependency_overrides[get_rag_query_service] = lambda: mock_rag_service
+    app.dependency_overrides[get_retrieval_service] = lambda: MagicMock()
     
     mock_redis_client = AsyncMock()
     mock_redis_client.eval.return_value = [0, 60]
